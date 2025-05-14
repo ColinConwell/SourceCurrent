@@ -110,42 +110,73 @@ export async function getAllUsers() {
 export async function getChannelDataAsDictionary(channel_id: string = process.env.SLACK_CHANNEL_ID!) {
   try {
     // Get channel information
-    const channelInfo = await getChannelInfo(channel_id);
+    let channelInfo: any = { channel: { id: channel_id, name: 'Unknown' } };
+    try {
+      const channelInfoResult = await getChannelInfo(channel_id);
+      channelInfo = channelInfoResult;
+    } catch (error) {
+      console.error('Error getting channel info, using default values:', error);
+    }
     
     // Get message history
-    const history = await readSlackHistory(channel_id);
+    let history: any = { messages: [] };
+    try {
+      history = await readSlackHistory(channel_id);
+    } catch (error) {
+      console.error('Error getting message history:', error);
+    }
     
     // Get all users
-    const usersResult = await getAllUsers();
-    const users = usersResult.members || [];
-    
-    // Create user map for easy lookup
-    const userMap: Record<string, any> = {};
-    users.forEach(user => {
-      if (user.id) {
-        userMap[user.id] = {
-          id: user.id,
-          name: user.name,
-          real_name: user.real_name,
-          is_bot: user.is_bot,
-          profile: {
-            display_name: user.profile?.display_name,
-            email: user.profile?.email,
-            status_text: user.profile?.status_text,
-            image_24: user.profile?.image_24
-          }
+    let userMap: Record<string, any> = {};
+    try {
+      const usersResult = await getAllUsers();
+      const users = usersResult.members || [];
+      
+      // Create user map for easy lookup
+      users.forEach(user => {
+        if (user.id) {
+          userMap[user.id] = {
+            id: user.id,
+            name: user.name,
+            real_name: user.real_name,
+            is_bot: user.is_bot,
+            profile: {
+              display_name: user.profile?.display_name,
+              email: user.profile?.email,
+              status_text: user.profile?.status_text,
+              image_24: user.profile?.image_24
+            }
+          };
+        }
+      });
+    } catch (error) {
+      // If we can't get users (missing scope), create basic user info from the messages
+      console.warn('Could not retrieve users list, possibly missing users:read scope');
+      
+      // Extract unique user IDs from messages
+      const userIds = new Set<string>();
+      history.messages?.forEach((msg: any) => {
+        if (msg.user) userIds.add(msg.user);
+      });
+      
+      // Create basic user entries
+      userIds.forEach(userId => {
+        userMap[userId] = {
+          id: userId,
+          name: `User-${userId.substring(0, 4)}`,
+          is_bot: false
         };
-      }
-    });
+      });
+    }
     
     // Extract messages in a clean format
-    const messages = history.messages?.map(msg => ({
+    const messages = history.messages?.map((msg: any) => ({
       user: msg.user,
       user_info: msg.user ? userMap[msg.user] : null,
       text: msg.text,
       timestamp: msg.ts,
       thread_ts: msg.thread_ts,
-      reactions: msg.reactions?.map(reaction => ({
+      reactions: msg.reactions?.map((reaction: any) => ({
         name: reaction.name,
         count: reaction.count,
         users: reaction.users
@@ -159,11 +190,11 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
       channel_info: {
         id: channelInfo.channel?.id,
         name: channelInfo.channel?.name,
-        topic: channelInfo.channel?.topic?.value,
-        purpose: channelInfo.channel?.purpose?.value,
-        member_count: channelInfo.channel?.num_members,
-        is_archived: channelInfo.channel?.is_archived,
-        created: channelInfo.channel?.created
+        topic: channelInfo.channel?.topic?.value || 'No topic set',
+        purpose: channelInfo.channel?.purpose?.value || '',
+        member_count: channelInfo.channel?.num_members || '?',
+        is_archived: channelInfo.channel?.is_archived || false,
+        created: channelInfo.channel?.created || Date.now() / 1000
       },
       messages: messages,
       users: userMap

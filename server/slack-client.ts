@@ -50,24 +50,69 @@ export class SlackClient {
   // Convert to dataframe-friendly format
   async getChannelDataAsDictionary(channelId: string) {
     try {
-      const messages = await this.getChannelHistory(channelId);
-      const users = await this.getUsersList();
+      // Get message history - if this fails, we can't provide much value
+      let messages;
+      try {
+        messages = await this.getChannelHistory(channelId);
+      } catch (error) {
+        console.error(`Error fetching Slack channel history:`, error);
+        throw new Error(`Failed to fetch channel messages: ${error.message}`);
+      }
       
-      const channel = (await this.client.conversations.info({ channel: channelId })).channel;
+      // Get channel info - provide defaults if this fails
+      let channel: any = { 
+        id: channelId, 
+        name: 'Unknown Channel', 
+        created: Math.floor(Date.now() / 1000),
+        is_archived: false 
+      };
+      try {
+        const channelInfo = await this.client.conversations.info({ channel: channelId });
+        if (channelInfo.channel) {
+          channel = channelInfo.channel;
+        }
+      } catch (error) {
+        console.warn(`Error fetching channel info, using fallback data:`, error);
+      }
       
-      // Create a user lookup map
-      const userMap = {};
-      users.forEach(user => {
-        userMap[user.id] = {
-          name: user.name,
-          real_name: user.real_name,
-          is_admin: user.is_admin,
-          profile: {
-            email: user.profile?.email,
-            status_text: user.profile?.status_text
+      // Get users - create basic user data if this fails (like missing scopes)
+      let userMap: Record<string, any> = {};
+      try {
+        const users = await this.getUsersList();
+        
+        // Create a user lookup map
+        users.forEach(user => {
+          if (user.id) {
+            userMap[user.id] = {
+              name: user.name,
+              real_name: user.real_name,
+              is_admin: user.is_admin,
+              profile: {
+                email: user.profile?.email,
+                status_text: user.profile?.status_text
+              }
+            };
           }
-        };
-      });
+        });
+      } catch (error) {
+        console.warn('Error fetching users list, creating minimal user data:', error);
+        
+        // Extract unique user IDs from messages
+        const userIds = new Set<string>();
+        messages.forEach((message: any) => {
+          if (message.user) userIds.add(message.user);
+        });
+        
+        // Create basic user entries
+        userIds.forEach(userId => {
+          userMap[userId] = {
+            name: `User-${userId.substring(0, 6)}`,
+            real_name: null,
+            is_admin: false,
+            profile: {}
+          };
+        });
+      }
       
       return {
         channel_info: {
@@ -79,11 +124,12 @@ export class SlackClient {
           is_general: channel.is_general,
           members_count: channel.num_members
         },
-        messages: messages.map(message => ({
+        messages: messages.map((message: any) => ({
           user: message.user,
           text: message.text,
           ts: message.ts,
-          reactions: message.reactions || []
+          reactions: message.reactions || [],
+          user_info: message.user ? userMap[message.user] : null
         })),
         users: userMap
       };
