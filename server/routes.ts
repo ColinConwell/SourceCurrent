@@ -7,9 +7,13 @@ import { getNotionClientForConnection } from "./notion-client";
 import { getLinearClientForConnection } from "./linear-client";
 import { getGDriveClientForConnection } from "./gdrive-client";
 import { z } from "zod";
+import { setupIntegrationRoutes } from "./integration-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+  
+  // Set up our integration routes for Slack, Notion, etc.
+  await setupIntegrationRoutes(app);
 
   // USER ROUTES
   app.post('/api/register', async (req: Request, res: Response) => {
@@ -320,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
       res.status(500).json({ message: `Failed to fetch data: ${error.message}` });
     }
@@ -387,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json(sources);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error discovering sources:', error);
       res.status(500).json({ message: `Failed to discover sources: ${error.message}` });
     }

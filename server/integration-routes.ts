@@ -33,7 +33,7 @@ export async function setupIntegrationRoutes(app: Express) {
         success: true,
         data
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching Slack messages:", error);
       res.status(500).json({
         success: false,
@@ -58,7 +58,7 @@ export async function setupIntegrationRoutes(app: Express) {
         success: true,
         data: tasks
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching Notion tasks:", error);
       res.status(500).json({
         success: false,
@@ -109,7 +109,7 @@ export async function setupIntegrationRoutes(app: Express) {
         success: true,
         data: dashboardData
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating integration dashboard:", error);
       res.status(500).json({
         success: false,

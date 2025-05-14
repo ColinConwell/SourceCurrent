@@ -192,17 +192,22 @@ async function createTask(databaseId: string, task: any) {
   }
 }
 
-// Run the setup if this file is executed directly
-if (require.main === module) {
-  setupTasksDatabase()
-    .then(() => {
-      console.log("Notion database setup complete!");
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error("Setup failed:", error);
-      process.exit(1);
-    });
+// In ESM, we don't have require.main, so we use a different approach
+// This function will be exported and called by the main application
+// It can also be called directly by running this file with tsx
+export async function runSetup() {
+  try {
+    await setupTasksDatabase();
+    console.log("Notion database setup complete!");
+    return true;
+  } catch (error) {
+    console.error("Setup failed:", error);
+    return false;
+  }
 }
+
+// Self-executing function to run setup when file is executed directly 
+// (this is safe in ESM context)
+runSetup();
 
 export { setupTasksDatabase };

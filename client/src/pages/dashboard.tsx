@@ -5,8 +5,10 @@ import { ConnectionsSection } from "@/components/connections/connections-section
 import { DataPreview } from "@/components/dashboard/data-preview";
 import { PipelineSection } from "@/components/dashboard/pipeline-section";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { IntegrationDashboard } from "@/components/integrations/integration-dashboard";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -27,7 +29,7 @@ export default function Dashboard() {
   // Add a welcome message for first-time users
   useEffect(() => {
     // Check if this appears to be a new user (no connections)
-    if (connections && connections.length === 0) {
+    if (connections && Array.isArray(connections) && connections.length === 0) {
       toast({
         title: "Welcome to DataConnect!",
         description: "Get started by adding your first connection to integrate your workspace tools.",
@@ -37,11 +39,22 @@ export default function Dashboard() {
   
   return (
     <AppLayout>
-      <OverviewStats />
-      <ConnectionsSection />
-      <DataPreview />
-      <PipelineSection />
-      <RecentActivity />
+      <Tabs defaultValue="overview" className="mb-8">
+        <TabsList className="grid w-[400px] grid-cols-2">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <OverviewStats />
+          <ConnectionsSection />
+          <DataPreview />
+          <PipelineSection />
+          <RecentActivity />
+        </TabsContent>
+        <TabsContent value="integrations" className="mt-6">
+          <IntegrationDashboard />
+        </TabsContent>
+      </Tabs>
     </AppLayout>
   );
 }
