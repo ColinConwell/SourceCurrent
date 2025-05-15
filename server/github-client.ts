@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Request, Response } from 'express';
 import { storage } from './storage';
 import { InsertConnection } from '../shared/schema';
+import jwt from 'jsonwebtoken';
 
 // GitHub API constants
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -13,14 +14,85 @@ const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:5000/api/auth/github/callback';
 
+// GitHub App configuration
+const GITHUB_APP_ID = process.env.GITHUB_APP_ID;
+const GITHUB_INSTALLATION_ID = process.env.GITHUB_INSTALLATION_ID;
+const GITHUB_PRIVATE_KEY = process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
 /**
  * GitHub API client for OAuth flow and API interactions
  */
 export class GitHubClient {
   private accessToken: string;
+  private installationToken: string;
+  private useAppAuth: boolean;
 
-  constructor(accessToken?: string) {
+  constructor(accessToken?: string, useAppAuth: boolean = false) {
     this.accessToken = accessToken || '';
+    this.installationToken = '';
+    this.useAppAuth = useAppAuth;
+  }
+  
+  /**
+   * Create a GitHub App JWT for authentication
+   */
+  static createAppJwt(): string {
+    if (!GITHUB_APP_ID || !GITHUB_PRIVATE_KEY) {
+      throw new Error('GitHub App credentials are not configured');
+    }
+    
+    // Create a JWT that expires in 10 minutes
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iat: now,
+      exp: now + 10 * 60,
+      iss: GITHUB_APP_ID
+    };
+    
+    return jwt.sign(payload, GITHUB_PRIVATE_KEY, { algorithm: 'RS256' });
+  }
+  
+  /**
+   * Get an installation access token for a GitHub App
+   */
+  static async getInstallationToken(): Promise<string> {
+    if (!GITHUB_INSTALLATION_ID) {
+      throw new Error('GitHub installation ID is not configured');
+    }
+    
+    try {
+      const appJwt = GitHubClient.createAppJwt();
+      
+      const response = await axios.post(
+        `${GITHUB_API_URL}/app/installations/${GITHUB_INSTALLATION_ID}/access_tokens`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${appJwt}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      
+      if (response.data.token) {
+        return response.data.token;
+      } else {
+        throw new Error('Failed to get installation token');
+      }
+    } catch (error) {
+      console.error('Error getting installation token:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Create a GitHub client using GitHub App authentication
+   */
+  static async createAppClient(): Promise<GitHubClient> {
+    const token = await GitHubClient.getInstallationToken();
+    const client = new GitHubClient(token, true);
+    client.installationToken = token;
+    return client;
   }
 
   /**
@@ -133,13 +205,23 @@ export class GitHubClient {
   }
 
   /**
+   * Get the authorization header based on authentication type
+   */
+  private getAuthHeader(): string {
+    if (this.useAppAuth && this.installationToken) {
+      return `token ${this.installationToken}`;
+    }
+    return `token ${this.accessToken}`;
+  }
+  
+  /**
    * Get the authenticated user's information
    */
   async getUserInfo() {
     try {
       const response = await axios.get(`${GITHUB_API_URL}/user`, {
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -147,6 +229,27 @@ export class GitHubClient {
       return response.data;
     } catch (error) {
       console.error('Error getting GitHub user info:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get GitHub App information
+   */
+  async getAppInfo() {
+    try {
+      const appJwt = GitHubClient.createAppJwt();
+      
+      const response = await axios.get(`${GITHUB_API_URL}/app`, {
+        headers: {
+          'Authorization': `Bearer ${appJwt}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error getting GitHub app info:', error);
       throw error;
     }
   }
@@ -164,7 +267,7 @@ export class GitHubClient {
           type: 'all'
         },
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -172,6 +275,33 @@ export class GitHubClient {
       return response.data;
     } catch (error) {
       console.error('Error getting GitHub repositories:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get all repositories accessible to the GitHub App installation
+   */
+  async getInstallationRepositories(perPage: number = 100, page: number = 1) {
+    try {
+      if (!this.useAppAuth) {
+        throw new Error('This method requires GitHub App authentication');
+      }
+      
+      const response = await axios.get(`${GITHUB_API_URL}/installation/repositories`, {
+        params: {
+          per_page: perPage,
+          page
+        },
+        headers: {
+          'Authorization': this.getAuthHeader(),
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      return response.data.repositories || [];
+    } catch (error) {
+      console.error('Error getting installation repositories:', error);
       throw error;
     }
   }
@@ -186,7 +316,7 @@ export class GitHubClient {
           per_page: perPage
         },
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -205,7 +335,7 @@ export class GitHubClient {
     try {
       const response = await axios.get(`${GITHUB_API_URL}/repos/${owner}/${repo}`, {
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -231,7 +361,7 @@ export class GitHubClient {
           per_page: 10
         },
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -242,7 +372,7 @@ export class GitHubClient {
           per_page: 10
         },
         headers: {
-          'Authorization': `token ${this.accessToken}`,
+          'Authorization': this.getAuthHeader(),
           'Accept': 'application/vnd.github.v3+json'
         }
       });
@@ -288,6 +418,7 @@ export class GitHubClient {
 
 /**
  * Create a GitHub client for a specific connection
+ * This function smartly selects between OAuth token and GitHub App authentication
  */
 export async function getGitHubClientForConnection(connectionId: number): Promise<GitHubClient> {
   try {
@@ -300,13 +431,25 @@ export async function getGitHubClientForConnection(connectionId: number): Promis
       throw new Error(`Connection ${connectionId} is not a GitHub connection`);
     }
     
-    const credentials = connection.credentials as { token: string };
-    
-    if (!credentials.token) {
-      throw new Error(`Connection ${connectionId} does not have a valid GitHub token`);
+    // Try to use GitHub App authentication if app credentials are available
+    if (GITHUB_APP_ID && GITHUB_INSTALLATION_ID && GITHUB_PRIVATE_KEY) {
+      try {
+        console.log('Using GitHub App authentication');
+        return await GitHubClient.createAppClient();
+      } catch (appError) {
+        console.error('Error creating GitHub App client, falling back to token authentication:', appError);
+      }
     }
     
-    return new GitHubClient(credentials.token);
+    // Fallback to OAuth token if available
+    const credentials = connection.credentials as { token?: string, clientId?: string, clientSecret?: string };
+    
+    if (credentials.token) {
+      console.log('Using GitHub OAuth token authentication');
+      return new GitHubClient(credentials.token);
+    }
+    
+    throw new Error(`Connection ${connectionId} does not have a valid GitHub authentication method`);
   } catch (error) {
     console.error(`Error creating GitHub client for connection ${connectionId}:`, error);
     throw error;
