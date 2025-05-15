@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JsonTreeViewer } from "@/components/data-display/json-tree-viewer";
 import { Connection } from "@shared/schema";
 
 interface DataSource {
@@ -12,7 +14,7 @@ interface DataSource {
 }
 
 export function DataPreview() {
-  const [activeTab, setActiveTab] = useState<'dictionary' | 'dataframe' | 'json'>('dictionary');
+  const [activeTab, setActiveTab] = useState<'tree' | 'raw'>('tree');
   const [selectedSource, setSelectedSource] = useState<DataSource | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -43,34 +45,34 @@ export function DataPreview() {
     }
   };
   
-  // Sample data sources based on available connections
+  // Fetch connections and create data sources from auto-setup
   const dataSources = connections
     ?.filter(c => c.active)
     .map(c => {
       switch (c.service) {
         case 'slack':
           return {
-            label: `${c.name} - General Channel`,
+            label: `${c.name} - Channel Data`,
             connectionId: c.id,
-            sourceId: 'C01234ABCDE' // Sample channel ID
+            sourceId: c.credentials?.channel || 'channel_default'
           };
         case 'linear':
           return {
-            label: `${c.name} - Product Team`,
+            label: `${c.name} - Team Issues`,
             connectionId: c.id,
-            sourceId: 'team_123' // Sample team ID
+            sourceId: 'team_default'
           };
         case 'notion':
           return {
-            label: `${c.name} - Product Roadmap`,
+            label: `${c.name} - Tasks`,
             connectionId: c.id,
-            sourceId: 'database_456' // Sample database ID
+            sourceId: 'tasks'
           };
         case 'gdrive':
           return {
-            label: `${c.name} - Reports`,
+            label: `${c.name} - Files`,
             connectionId: c.id,
-            sourceId: 'folder_789' // Sample folder ID
+            sourceId: 'root'
           };
         default:
           return null;
@@ -83,24 +85,10 @@ export function DataPreview() {
     setSelectedSource(dataSources[0]);
   }
   
-  // Format the data based on the selected tab
-  const formatData = () => {
-    if (!sourceData) return '';
-    
-    switch (activeTab) {
-      case 'dictionary':
-      case 'json':
-        return JSON.stringify(sourceData, null, 2);
-      case 'dataframe':
-        // In a real app, this would transform the data to a dataframe-like format
-        return 'DataFrame representation would go here...';
-    }
-  };
-  
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-neutral-900">Data Preview</h2>
+        <h2 className="text-lg font-semibold">Data Preview</h2>
         <div className="flex items-center space-x-2">
           <Select 
             value={selectedSource?.label} 
@@ -110,7 +98,7 @@ export function DataPreview() {
             }}
             disabled={connectionsLoading || dataSources?.length === 0}
           >
-            <SelectTrigger className="py-1.5 px-3 text-sm w-[240px]">
+            <SelectTrigger className="w-[240px]">
               <SelectValue placeholder="Select a data source" />
             </SelectTrigger>
             <SelectContent>
@@ -121,49 +109,50 @@ export function DataPreview() {
               ))}
             </SelectContent>
           </Select>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleRefresh}
-            disabled={isRefreshing || !selectedSource}
-          >
-            <i className={`${isRefreshing ? 'ri-loader-4-line animate-spin' : 'ri-refresh-line'} text-lg`}></i>
-          </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden">
-        <div className="border-b border-neutral-200">
-          <div className="flex">
-            <button 
-              className={`data-type-tab px-4 py-3 text-sm font-medium border-b-2 focus:outline-none ${activeTab === 'dictionary' ? 'active' : 'border-transparent'}`}
-              onClick={() => setActiveTab('dictionary')}
-            >
-              Dictionary
-            </button>
-            <button 
-              className={`data-type-tab px-4 py-3 text-sm font-medium border-b-2 focus:outline-none ${activeTab === 'dataframe' ? 'active' : 'border-transparent'}`}
-              onClick={() => setActiveTab('dataframe')}
-            >
-              DataFrame
-            </button>
-            <button 
-              className={`data-type-tab px-4 py-3 text-sm font-medium border-b-2 focus:outline-none ${activeTab === 'json' ? 'active' : 'border-transparent'}`}
-              onClick={() => setActiveTab('json')}
-            >
-              Raw JSON
-            </button>
-          </div>
+      <div className="rounded-lg border bg-card">
+        <div className="border-b px-4 py-3 flex items-center justify-between">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(value) => setActiveTab(value as 'tree' | 'raw')}
+            className="w-[200px]"
+          >
+            <TabsList>
+              <TabsTrigger value="tree">Tree View</TabsTrigger>
+              <TabsTrigger value="raw">Raw JSON</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || !selectedSource}
+          >
+            {isRefreshing ? (
+              <>
+                <i className="ri-loader-4-line animate-spin mr-1"></i>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <i className="ri-refresh-line mr-1"></i>
+                Refresh
+              </>
+            )}
+          </Button>
         </div>
 
-        <div className="p-4 overflow-auto max-h-96">
+        <div>
           {!selectedSource ? (
-            <div className="flex flex-col items-center justify-center h-48 text-neutral-500">
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground p-4">
               <i className="ri-database-2-line text-4xl mb-2"></i>
               <p>Select a data source to preview data</p>
             </div>
-          ) : dataLoading ? (
-            <div className="space-y-2">
+          ) : dataLoading || isRefreshing ? (
+            <div className="p-4 space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
@@ -171,19 +160,34 @@ export function DataPreview() {
               <Skeleton className="h-4 w-5/6" />
             </div>
           ) : error ? (
-            <div className="text-red-500 p-4">
+            <div className="bg-red-50 text-red-800 p-4 m-4 rounded-md">
               <p className="font-bold">Error loading data:</p>
-              <p>{error.message}</p>
+              <p className="text-sm mt-1">{error.message}</p>
             </div>
           ) : (
-            <code className="font-mono text-sm text-neutral-800 whitespace-pre">
-              {formatData()}
-            </code>
+            <div>
+              <TabsContent value="tree" className="m-0">
+                <div className="p-4">
+                  <JsonTreeViewer 
+                    data={sourceData?.data ? sourceData.data : {}} 
+                    maxInitialDepth={2} 
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="raw" className="m-0">
+                <div className="p-4 overflow-auto max-h-[500px]">
+                  <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
+                    {JSON.stringify(sourceData?.data || {}, null, 2)}
+                  </pre>
+                </div>
+              </TabsContent>
+            </div>
           )}
         </div>
 
-        <div className="flex justify-between items-center p-4 bg-neutral-50 border-t border-neutral-200">
-          <div className="text-sm text-neutral-500">
+        <div className="flex justify-between items-center p-4 bg-muted/10 border-t">
+          <div className="text-sm text-muted-foreground">
             <span className="font-medium">Last updated:</span>
             <span> {getLastUpdatedTime(sourceData)}</span>
           </div>
@@ -209,23 +213,6 @@ export function DataPreview() {
             >
               <i className="ri-download-line mr-1"></i>
               Export
-            </Button>
-            <Button 
-              onClick={handleRefresh}
-              disabled={isRefreshing || !selectedSource}
-              size="sm"
-            >
-              {isRefreshing ? (
-                <>
-                  <i className="ri-loader-4-line animate-spin mr-1"></i>
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <i className="ri-refresh-line mr-1"></i>
-                  Refresh
-                </>
-              )}
             </Button>
           </div>
         </div>
