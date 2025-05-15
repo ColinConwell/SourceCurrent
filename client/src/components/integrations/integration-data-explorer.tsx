@@ -97,12 +97,12 @@ export function IntegrationDataExplorer() {
                           key={connection.id} 
                           value={connection.id.toString()}
                         >
-                          <span>{connection.name} ({connection.serviceType})</span>
+                          {connection.name} ({connection.serviceType})
                         </SelectItem>
                       ))}
                       {connections.length === 0 && (
                         <SelectItem key="no-connections" value="none" disabled>
-                          <span>No connections available</span>
+                          No connections available
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -134,12 +134,12 @@ export function IntegrationDataExplorer() {
                           key={source.sourceId} 
                           value={source.sourceId}
                         >
-                          <span>{source.label}</span>
+                          {source.label}
                         </SelectItem>
                       ))}
                       {(!dataSources || dataSources.length === 0) && (
                         <SelectItem key="no-datasources" value="none" disabled>
-                          <span>No data sources available</span>
+                          No data sources available
                         </SelectItem>
                       )}
                     </SelectContent>
