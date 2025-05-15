@@ -4,7 +4,7 @@ A powerful web application that integrates multiple data sources (Slack, Notion,
 
 ![Dashboard Screenshot](./assets/Manifold-Icon.png)
 
-## 🌟 Features
+## Main Features
 
 - **Multi-Service Integration**: Connect seamlessly with Slack, Notion, GitHub, and Google Drive
 - **Auto-Connection Detection**: Automatically detects and configures connections based on available API credentials
@@ -152,11 +152,3 @@ JWT_SECRET=your-very-secret-jwt-key
 1. Fork this repository to Replit
 2. Add your environment secrets in the Replit Secrets panel
 3. The application will automatically build and run
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
-## 📄 License
-
-This project is licensed under the MIT License.

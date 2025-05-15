@@ -23,6 +23,13 @@ export async function setupConnectionsFromEnv(): Promise<void> {
   // Array to track connections we've added
   const addedConnections: Connection[] = [];
   
+  // Available integrations with environment variables
+  console.log(`Available API integrations from environment: ${Object.entries(getAvailableServicesFromEnv())
+    .filter(([_, available]) => available)
+    .map(([service]) => service)
+    .join(', ')}`);
+  
+  
   // Check for Slack credentials
   if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID && !existingConnectionsByService['slack']) {
     try {
@@ -131,7 +138,74 @@ export async function setupConnectionsFromEnv(): Promise<void> {
     }
   }
   
-  // Check for other services (Linear, Google Drive, etc.)
+  // Check for Linear credentials
+  if (process.env.LINEAR_API_KEY && !existingConnectionsByService['linear']) {
+    try {
+      const linearConnection: InsertConnection = {
+        userId: demoUserId,
+        name: "Linear Workspace",
+        service: "linear",
+        credentials: {
+          api_key: process.env.LINEAR_API_KEY,
+          description: "Auto-connected Linear workspace"
+        },
+        active: true
+      };
+      
+      const newConnection = await storage.createConnection(linearConnection);
+      addedConnections.push(newConnection);
+      console.log(`✓ Created Linear connection: ${newConnection.name} (ID: ${newConnection.id})`);
+      
+      // We'll create team-specific data sources after fetching teams
+      try {
+        const LinearClient = (await import("./linear-client")).LinearClient;
+        const client = new LinearClient(process.env.LINEAR_API_KEY);
+        
+        // Get teams to create data sources for each
+        const teams = await client.getTeams();
+        if (teams && teams.length > 0) {
+          for (const team of teams) {
+            await storage.createDataSource({
+              connectionId: newConnection.id,
+              name: `${team.name} Team`,
+              sourceId: team.id,
+              sourceType: "team",
+              schema: {
+                team_key: team.key,
+                team_name: team.name
+              }
+            });
+          }
+          console.log(`  ↳ Added data sources for ${teams.length} Linear teams`);
+        } else {
+          // Create a generic data source
+          await storage.createDataSource({
+            connectionId: newConnection.id,
+            name: "Linear workspace",
+            sourceId: "workspace",
+            sourceType: "workspace",
+            schema: null
+          });
+          console.log(`  ↳ Added data source for Linear workspace`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch Linear teams:", error);
+        // Create a generic data source as fallback
+        await storage.createDataSource({
+          connectionId: newConnection.id,
+          name: "Linear workspace",
+          sourceId: "workspace",
+          sourceType: "workspace",
+          schema: null
+        });
+        console.log(`  ↳ Added data source for Linear workspace`);
+      }
+    } catch (error) {
+      console.error("Failed to create Linear connection:", error);
+    }
+  }
+  
+  // Check for other services (Google Drive, etc.)
   // We can add similar checks for other services as needed
   
   if (addedConnections.length > 0) {
