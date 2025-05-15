@@ -7,12 +7,30 @@ interface Stats {
   lastSync: string;
 }
 
+interface Connection {
+  id: number;
+  userId: number;
+  name: string;
+  serviceType: string;
+  active: boolean;
+  metadata: any;
+  createdAt: string;
+}
+
+interface Activity {
+  id: number;
+  userId: number;
+  type: string;
+  description: string;
+  createdAt: string;
+}
+
 export function OverviewStats() {
-  const { data: connections, isLoading: connectionsLoading } = useQuery({
+  const { data: connections = [], isLoading: connectionsLoading } = useQuery<Connection[]>({
     queryKey: ['/api/connections'],
   });
   
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
     queryKey: ['/api/activities', { limit: 1 }],
   });
   
@@ -20,9 +38,9 @@ export function OverviewStats() {
   
   // Calculate stats based on actual data
   const stats: Stats = {
-    connectedServices: connections?.filter(c => c.active).length || 0,
-    dataSources: connections?.length || 0, // Simplified for demo
-    lastSync: activities && activities.length > 0 
+    connectedServices: connections.filter(c => c.active).length || 0,
+    dataSources: connections.length || 0, // Simplified for demo
+    lastSync: activities.length > 0 
       ? formatLastSync(activities[0].createdAt) 
       : 'Never'
   };
@@ -43,13 +61,6 @@ export function OverviewStats() {
       value: stats.dataSources
     },
     {
-      icon: "ri-database-2-line",
-      iconBg: "bg-purple-50",
-      iconColor: "text-accent-500",
-      label: "Data Frames",
-      value: stats.dataFrames
-    },
-    {
       icon: "ri-time-line",
       iconBg: "bg-yellow-50",
       iconColor: "text-yellow-500",
@@ -59,7 +70,7 @@ export function OverviewStats() {
   ];
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {statItems.map((item, index) => (
         <div key={index} className="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
           <div className="flex items-center">
