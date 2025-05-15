@@ -99,7 +99,8 @@ export function IntegrationDataExplorer() {
             <SelectContent>
               {services.map((service) => (
                 <SelectItem key={service.id} value={service.id}>
-                  <div className="flex items-center space-x-2">
+                  {/* Using a React fragment instead of a div to avoid key warning */}
+                  <>
                     <span>{service.name}</span>
                     {service.status === 'connected' ? (
                       <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 ml-1">
@@ -110,7 +111,7 @@ export function IntegrationDataExplorer() {
                         <AlertCircle className="w-3 h-3 mr-1" /> Limited
                       </Badge>
                     )}
-                  </div>
+                  </>
                 </SelectItem>
               ))}
             </SelectContent>
