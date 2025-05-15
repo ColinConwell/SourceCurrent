@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
+import { getGitHubClientForConnection } from "./github-client";
+import { storage } from "./storage";
 
 /**
  * Sets up routes for our integrations with Slack, Notion, etc.
@@ -84,6 +86,80 @@ export async function setupIntegrationRoutes(app: Express) {
     }
   });
   
+  // Get GitHub repositories
+  app.get("/api/github/repositories", async (req: Request, res: Response) => {
+    try {
+      // Find the first GitHub connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const githubConnection = connections.find(conn => conn.service === 'github');
+      
+      if (!githubConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No GitHub connection found"
+        });
+      }
+      
+      // Get GitHub client for this connection
+      const githubClient = await getGitHubClientForConnection(githubConnection.id);
+      
+      // Try to get repositories from GitHub App installation first
+      let repositories;
+      try {
+        repositories = await githubClient.getInstallationRepositories();
+      } catch (appError) {
+        console.log('Falling back to user repositories endpoint');
+        repositories = await githubClient.getRepositories();
+      }
+      
+      res.json({
+        success: true,
+        data: repositories
+      });
+    } catch (error: any) {
+      console.error("Error getting GitHub repositories:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get GitHub repositories"
+      });
+    }
+  });
+  
+  // Get GitHub repository details
+  app.get("/api/github/repositories/:owner/:repo", async (req: Request, res: Response) => {
+    try {
+      const { owner, repo } = req.params;
+      
+      // Find the first GitHub connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const githubConnection = connections.find(conn => conn.service === 'github');
+      
+      if (!githubConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No GitHub connection found"
+        });
+      }
+      
+      // Get GitHub client for this connection
+      const githubClient = await getGitHubClientForConnection(githubConnection.id);
+      
+      // Get repository detailed info
+      const repositoryData = await githubClient.getRepositoryDataAsDictionary(owner, repo);
+      
+      res.json({
+        success: true,
+        data: repositoryData
+      });
+    } catch (error: any) {
+      console.error("Error getting GitHub repository details:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get GitHub repository details"
+      });
+    }
+  });
+  
   // Integration dashboard endpoint that combines data from multiple services
   app.get("/api/integration/dashboard", async (req: Request, res: Response) => {
     try {
@@ -159,6 +235,58 @@ export async function setupIntegrationRoutes(app: Express) {
         }
       } else {
         integrationStatus.notion = 'missing_credentials';
+      }
+      
+      // Get GitHub data if GitHub App credentials are available
+      if (process.env.GITHUB_APP_ID && process.env.GITHUB_INSTALLATION_ID && process.env.GITHUB_PRIVATE_KEY) {
+        try {
+          // Find the GitHub connection
+          const connections = await storage.getConnections(1); // Using default user ID
+          const githubConnection = connections.find(conn => conn.service === 'github');
+          
+          if (githubConnection) {
+            const githubClient = await getGitHubClientForConnection(githubConnection.id);
+            
+            // Get repositories from the installation
+            let repositories = [];
+            try {
+              repositories = await githubClient.getInstallationRepositories();
+            } catch (repoError) {
+              console.error("Error fetching installation repositories:", repoError);
+              try {
+                // Fallback to user repositories if available
+                repositories = await githubClient.getRepositories();
+              } catch (userRepoError) {
+                console.error("Error fetching user repositories:", userRepoError);
+              }
+            }
+            
+            // Get app information
+            let appInfo = null;
+            try {
+              appInfo = await githubClient.getAppInfo();
+            } catch (appError) {
+              console.error("Error fetching GitHub App info:", appError);
+            }
+            
+            result.github = {
+              app_info: appInfo,
+              repositories: repositories
+            };
+            
+            integrationStatus.github = repositories.length > 0 ? 'active' : 'error';
+          } else {
+            integrationStatus.github = 'no_connection';
+          }
+        } catch (githubError: any) {
+          console.error("Error fetching GitHub data:", githubError);
+          result.github = { error: githubError.message };
+          integrationStatus.github = 'error';
+        }
+      } else if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+        integrationStatus.github = 'auth_required';
+      } else {
+        integrationStatus.github = 'missing_credentials';
       }
       
       result.integrationStatus = integrationStatus;

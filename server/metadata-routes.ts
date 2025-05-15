@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { getChannelDataAsDictionary } from "./slack-setup";
 import { getTasks, getNotionDatabases, findTasksDatabase, notion, NOTION_PAGE_ID } from "./notion-setup";
+import { storage } from "./storage";
+import { getGitHubClientForConnection, GitHubClient } from "./github-client";
 import axios from "axios";
 
 /**
@@ -50,8 +52,26 @@ export async function setupMetadataRoutes(app: Express) {
       
       // Collect GitHub metadata if available
       try {
-        if (process.env.GITHUB_TOKEN) {
-          const githubData = await getGitHubMetadata();
+        if (process.env.GITHUB_APP_ID && process.env.GITHUB_INSTALLATION_ID && process.env.GITHUB_PRIVATE_KEY) {
+          // Try to find an existing GitHub connection
+          const connections = await storage.getConnections(1); // Using default user ID
+          const githubConnection = connections.find(conn => conn.service === 'github');
+          
+          if (githubConnection) {
+            const githubData = await getGitHubMetadata(githubConnection.id);
+            if (githubData) {
+              metadata.github = githubData;
+            }
+          } else {
+            console.warn("GitHub App credentials available but no connection found");
+            metadata.github = { 
+              status: "no_connection",
+              message: "GitHub App credentials available but no connection found" 
+            };
+          }
+        } else if (process.env.GITHUB_TOKEN) {
+          // Fallback to personal access token if available (legacy method)
+          const githubData = await getGitHubMetadataWithToken();
           if (githubData) {
             metadata.github = githubData;
           }
@@ -281,9 +301,179 @@ async function getNotionMetadata() {
 }
 
 /**
- * Collects metadata about GitHub repositories and user
+ * Collects metadata about GitHub repositories and user using GitHub App authentication
  */
-async function getGitHubMetadata() {
+async function getGitHubMetadata(connectionId: number) {
+  try {
+    // Get a GitHub client for this connection (will use GitHub App authentication)
+    const githubClient = await getGitHubClientForConnection(connectionId);
+    
+    // Get App information
+    let appInfo = null;
+    try {
+      appInfo = await githubClient.getAppInfo();
+    } catch (appError) {
+      console.error("Failed to fetch GitHub App info:", appError);
+    }
+    
+    // Try to get repositories from the installation
+    let repos = [];
+    try {
+      repos = await githubClient.getInstallationRepositories();
+    } catch (repoError) {
+      console.error("Failed to fetch installation repositories, falling back to user repositories:", repoError);
+      try {
+        repos = await githubClient.getRepositories();
+      } catch (userRepoError) {
+        console.error("Failed to fetch user repositories:", userRepoError);
+        throw userRepoError;
+      }
+    }
+    
+    // Get user information if available
+    let user = null;
+    try {
+      user = await githubClient.getUserInfo();
+    } catch (userError) {
+      console.warn("Failed to fetch GitHub user info:", userError);
+      // Create a minimal user object with info from repositories if possible
+      if (repos.length > 0 && repos[0].owner) {
+        user = {
+          login: repos[0].owner.login,
+          avatar_url: repos[0].owner.avatar_url,
+          html_url: repos[0].owner.html_url
+        };
+      }
+    }
+    
+    // Process repository data
+    const repoStats = {
+      totalCount: repos.length,
+      languageCounts: {} as Record<string, number>,
+      stargazerSum: 0,
+      forkSum: 0,
+      issueSum: 0,
+      topStarred: [] as any[],
+      recentlyUpdated: [] as any[]
+    };
+    
+    // Extract language statistics
+    repos.forEach((repo: any) => {
+      if (repo.language) {
+        repoStats.languageCounts[repo.language] = (repoStats.languageCounts[repo.language] || 0) + 1;
+      }
+      
+      repoStats.stargazerSum += repo.stargazers_count;
+      repoStats.forkSum += repo.forks_count;
+      repoStats.issueSum += repo.open_issues_count;
+    });
+    
+    // Sort repos by stars and get top 5
+    repoStats.topStarred = [...repos]
+      .sort((a, b) => b.stargazers_count - a.stargazers_count)
+      .slice(0, 5)
+      .map(repo => ({
+        name: repo.name,
+        full_name: repo.full_name,
+        owner: repo.owner?.login,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        language: repo.language,
+        description: repo.description,
+        url: repo.html_url
+      }));
+    
+    // Get 5 most recently updated repos
+    repoStats.recentlyUpdated = [...repos]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 5)
+      .map(repo => ({
+        name: repo.name,
+        full_name: repo.full_name,
+        updatedAt: repo.updated_at,
+        language: repo.language,
+        description: repo.description,
+        url: repo.html_url
+      }));
+    
+    // Get user activity if we have a username
+    let activityData = [];
+    if (user && user.login) {
+      try {
+        activityData = await githubClient.getUserActivity(user.login);
+        activityData = activityData.slice(0, 10);
+      } catch (err) {
+        console.error("Failed to fetch GitHub activity data:", err);
+      }
+    }
+    
+    const result: any = {
+      repositories: repoStats,
+      status: "active",
+      sourceType: "github_app"
+    };
+    
+    // Add app info if available
+    if (appInfo) {
+      result.app = {
+        id: appInfo.id,
+        name: appInfo.name,
+        description: appInfo.description,
+        html_url: appInfo.html_url,
+        external_url: appInfo.external_url
+      };
+    }
+    
+    // Add user info if available
+    if (user) {
+      result.user = {
+        login: user.login,
+        name: user.name,
+        avatarUrl: user.avatar_url,
+        publicRepos: user.public_repos,
+        followers: user.followers,
+        following: user.following,
+        company: user.company,
+        blog: user.blog,
+        location: user.location,
+        createdAt: user.created_at
+      };
+    }
+    
+    if (activityData.length > 0) {
+      result.recentActivity = activityData;
+    }
+    
+    return result;
+  } catch (error: any) {
+    console.error("Error generating GitHub metadata:", error);
+    
+    const errorStatus = error.response?.status;
+    const errorMessage = error.response?.data?.message || error.message;
+    
+    // Check for specific error types
+    if (errorStatus === 401) {
+      return {
+        error: "Authentication failed. Please check your GitHub credentials.",
+        status: "error",
+        errorCode: "UNAUTHORIZED"
+      };
+    } else if (errorStatus === 403 && errorMessage?.includes("rate limit")) {
+      return {
+        error: "GitHub API rate limit exceeded. Please try again later.",
+        status: "error",
+        errorCode: "RATE_LIMITED"
+      };
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Legacy method to collect GitHub metadata using personal access token
+ */
+async function getGitHubMetadataWithToken() {
   try {
     const token = process.env.GITHUB_TOKEN!;
     const headers = {
@@ -370,10 +560,11 @@ async function getGitHubMetadata() {
       },
       repositories: repoStats,
       recentActivity: activityData,
-      status: "active"
+      status: "active",
+      sourceType: "personal_token"
     };
   } catch (error: any) {
-    console.error("Error generating GitHub metadata:", error);
+    console.error("Error generating GitHub metadata with token:", error);
     
     const errorStatus = error.response?.status;
     const errorMessage = error.response?.data?.message || error.message;
