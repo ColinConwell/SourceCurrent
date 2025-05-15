@@ -18,7 +18,12 @@ export function EndpointExplorer() {
   const [resultData, setResultData] = useState<any>(null);
 
   // Get services that are available in the environment
-  const { data: servicesData } = useQuery({
+  const { data: servicesData } = useQuery<{
+    success: boolean;
+    data: {
+      availableServices: Record<string, boolean>;
+    };
+  }>({
     queryKey: ["/api/environment/services"],
   });
   
