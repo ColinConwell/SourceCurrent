@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupConnectionsFromEnv, getAvailableServicesFromEnv } from "./env-setup";
+import { setupMetadataRoutes } from "./metadata-routes";
 
 const app = express();
 app.use(express.json());
@@ -49,6 +50,9 @@ app.use((req, res, next) => {
   
   // Set up connections from environment variables
   await setupConnectionsFromEnv();
+  
+  // Set up metadata routes for connected services
+  await setupMetadataRoutes(app);
   
   // Register API routes
   const server = await registerRoutes(app);
