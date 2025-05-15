@@ -71,10 +71,10 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
       </div>
 
       <div className="border rounded-md">
-        <ScrollArea className="h-[350px] pr-4">
+        <ScrollArea className="h-[450px] pr-4">
           <div className="p-4">
             {view === "treeview" ? (
-              <TreeView data={data} />
+              <TreeView data={data} expandedByDefault={true} />
             ) : (
               <pre className="text-xs text-neutral-700 whitespace-pre-wrap overflow-x-auto">
                 {JSON.stringify(data, null, 2)}
@@ -90,9 +90,31 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
 interface TreeViewProps {
   data: any;
   level?: number;
+  expandedByDefault?: boolean;
 }
 
-function TreeView({ data, level = 0 }: TreeViewProps) {
+function TreeView({ data, level = 0, expandedByDefault = true }: TreeViewProps) {
+  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault && level < 2);
+  
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+  
+  // Create indentation
+  const indent = React.useMemo(() => {
+    return {
+      paddingLeft: level > 0 ? `${level * 20}px` : '0px',
+    };
+  }, [level]);
+  
+  // Determine if item is expandable
+  const isExpandable = React.useMemo(() => {
+    return (Array.isArray(data) && data.length > 0) || 
+           (typeof data === "object" && data !== null && Object.keys(data).length > 0);
+  }, [data]);
+  
+  // Primitive value rendering
   if (data === null) {
     return <span className="text-gray-500">null</span>;
   }
@@ -108,44 +130,64 @@ function TreeView({ data, level = 0 }: TreeViewProps) {
   if (typeof data === "number" || typeof data === "boolean") {
     return <span className="text-blue-600">{String(data)}</span>;
   }
-
-  if (Array.isArray(data)) {
-    if (data.length === 0) {
-      return <span className="text-gray-500">[]</span>;
-    }
-
-    return (
-      <div style={{ marginLeft: level > 0 ? 20 : 0 }}>
-        <div className="text-gray-600">[</div>
-        {data.map((item, index) => (
-          <div key={index} className="flex items-start">
-            <div className="text-gray-500 mr-1">{index}:</div>
-            <TreeView data={item} level={level + 1} />
-            {index < data.length - 1 && <div className="text-gray-600">,</div>}
-          </div>
-        ))}
-        <div className="text-gray-600">]</div>
-      </div>
-    );
+  
+  // Empty collections
+  if (Array.isArray(data) && data.length === 0) {
+    return <span className="text-gray-500">[]</span>;
+  }
+  
+  if (typeof data === "object" && data !== null && Object.keys(data).length === 0) {
+    return <span className="text-gray-500">{"{}"}</span>;
   }
 
-  if (typeof data === "object") {
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
-      return <span className="text-gray-500">{"{}"}</span>;
-    }
-
+  // Collection rendering (arrays and objects)
+  if (isExpandable) {
+    const isArray = Array.isArray(data);
+    const bracketType = isArray ? ["[", "]"] : ["{", "}"];
+    const keys = isArray ? Object.keys(data).map(Number) : Object.keys(data);
+    
     return (
-      <div style={{ marginLeft: level > 0 ? 20 : 0 }}>
-        <div className="text-gray-600">{"{"}</div>
-        {keys.map((key, index) => (
-          <div key={key} className="flex items-start">
-            <div className="text-red-600 mr-1">"{key}":</div>
-            <TreeView data={data[key]} level={level + 1} />
-            {index < keys.length - 1 && <div className="text-gray-600">,</div>}
+      <div className="relative" style={indent}>
+        <div 
+          className="cursor-pointer select-none text-gray-600 mb-1 flex items-center" 
+          onClick={toggle}
+        >
+          <span className="mr-2 inline-block transform transition-transform" style={{
+            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+          }}>
+            ▶
+          </span>
+          {bracketType[0]}
+          {!isExpanded && (
+            <span className="text-gray-400 ml-1">
+              {isArray 
+                ? `${data.length} items` 
+                : `${Object.keys(data).length} properties`
+              }
+            </span>
+          )}
+          {!isExpanded && <span className="text-gray-600 ml-1">{bracketType[1]}</span>}
+        </div>
+        
+        {isExpanded && (
+          <div className="pl-4 border-l border-gray-200">
+            {keys.map((key, index) => (
+              <div key={isArray ? `${index}` : key.toString()} className="flex items-start mb-1">
+                <div className={`${isArray ? "text-gray-500" : "text-red-600"} mr-2`}>
+                  {isArray ? `${key}:` : `"${key}":`}
+                </div>
+                <div className="flex-1">
+                  <TreeView 
+                    data={data[key]} 
+                    level={0} 
+                    expandedByDefault={expandedByDefault && level < 1}
+                  />
+                </div>
+              </div>
+            ))}
+            <div className="text-gray-600">{bracketType[1]}</div>
           </div>
-        ))}
-        <div className="text-gray-600">{"}"}</div>
+        )}
       </div>
     );
   }
