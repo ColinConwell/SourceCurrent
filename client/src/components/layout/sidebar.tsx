@@ -52,8 +52,8 @@ export default function Sidebar({ className }: SidebarProps) {
                 <span className="text-sm font-medium text-neutral-700">JS</span>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-neutral-700">John Smith</p>
-                <p className="text-xs font-medium text-neutral-500">Admin</p>
+                <p className="text-sm font-medium text-neutral-700">Example User</p>
+                <p className="text-xs font-medium text-neutral-500">Administrator</p>
               </div>
             </div>
           </div>
