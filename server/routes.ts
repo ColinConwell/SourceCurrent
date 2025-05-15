@@ -8,6 +8,7 @@ import { getLinearClientForConnection } from "./linear-client";
 import { getGDriveClientForConnection } from "./gdrive-client";
 import { z } from "zod";
 import { setupIntegrationRoutes } from "./integration-routes";
+import { getAvailableServicesFromEnv } from "./env-setup";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);

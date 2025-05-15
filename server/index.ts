@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupConnectionsFromEnv, getAvailableServicesFromEnv } from "./env-setup";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,19 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Check available API integrations in environment variables
+  const availableServices = getAvailableServicesFromEnv();
+  console.log("Available API integrations from environment:", 
+    Object.entries(availableServices)
+      .filter(([_, available]) => available)
+      .map(([service, _]) => service)
+      .join(", ") || "None"
+  );
+  
+  // Set up connections from environment variables
+  await setupConnectionsFromEnv();
+  
+  // Register API routes
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
