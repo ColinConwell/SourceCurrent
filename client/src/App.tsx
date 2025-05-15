@@ -8,14 +8,17 @@ import NotFound from "@/pages/not-found";
 import AuthCallback from "@/pages/auth-callback";
 import Endpoints from "@/pages/endpoints";
 import Integrations from "@/pages/integrations";
+import Configurations from "@/pages/configurations";
+import Activity from "@/pages/activity";
+import Help from "@/pages/help";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/config" component={Dashboard} />
-      <Route path="/activity" component={Dashboard} />
-      <Route path="/help" component={Dashboard} />
+      <Route path="/config" component={Configurations} />
+      <Route path="/activity" component={Activity} />
+      <Route path="/help" component={Help} />
       <Route path="/endpoints" component={Endpoints} />
       <Route path="/integrations" component={Integrations} />
       <Route path="/auth/:service/callback" component={AuthCallback} />
