@@ -41,6 +41,7 @@ export function ServiceMetadataViewer() {
   
   const hasSlack = metadata && 'slack' in metadata && metadata.slack && metadata.slack.status !== "error";
   const hasNotion = metadata && 'notion' in metadata && metadata.notion && metadata.notion.status !== "error";
+  const hasGitHub = metadata && 'github' in metadata && metadata.github && metadata.github.status !== "error";
   
   return (
     <Card>

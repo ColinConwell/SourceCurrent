@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { getChannelDataAsDictionary } from "./slack-setup";
-import { getTasks, getNotionDatabases, notion, NOTION_PAGE_ID } from "./notion-setup";
+import { getTasks, getNotionDatabases, findTasksDatabase, notion, NOTION_PAGE_ID } from "./notion-setup";
+import axios from "axios";
 
 /**
  * Collects and returns metadata about connected services
@@ -43,6 +44,22 @@ export async function setupMetadataRoutes(app: Express) {
         console.error("Error collecting Notion metadata:", notionError);
         metadata.notion = { 
           error: notionError.message,
+          status: "error" 
+        };
+      }
+      
+      // Collect GitHub metadata if available
+      try {
+        if (process.env.GITHUB_TOKEN) {
+          const githubData = await getGitHubMetadata();
+          if (githubData) {
+            metadata.github = githubData;
+          }
+        }
+      } catch (githubError: any) {
+        console.error("Error collecting GitHub metadata:", githubError);
+        metadata.github = { 
+          error: githubError.message,
           status: "error" 
         };
       }
@@ -93,6 +110,11 @@ async function getSlackMetadata() {
     // Get basic channel information
     const channelData = await getChannelDataAsDictionary(channelId);
     const channelInfo = channelData.channel_info;
+    
+    // Handle case where users might not be available due to missing permissions
+    if (!channelData.users || Object.keys(channelData.users).length === 0) {
+      console.warn("Users data not available - may need 'users:read' scope in Slack token");
+    }
     
     // Extract message metadata (message types, frequency, etc.)
     const messageTypes = new Set<string>();
@@ -191,18 +213,22 @@ async function getNotionMetadata() {
     let tasksCount = 0;
     let tasksData = null;
     
-    // Look for a database that might be a tasks database
-    for (const db of databases) {
-      // Check if the database title contains "task" or "todo"
-      // Access title safely as any to handle TypeScript issues with Notion API types
-      const dbAny = db as any;
-      const title = dbAny.title?.[0]?.plain_text || '';
-      if (title.toLowerCase().includes('task') || title.toLowerCase().includes('todo')) {
-        tasksDb = db;
+    // Find a tasks database
+    try {
+      const tasksDatabaseId = await findTasksDatabase();
+      
+      if (tasksDatabaseId) {
+        // Get the database info
+        for (const db of databases) {
+          if (db.id === tasksDatabaseId) {
+            tasksDb = db;
+            break;
+          }
+        }
         
-        // Get task count
+        // Get task count and data
         try {
-          const tasks = await getTasks(db.id);
+          const tasks = await getTasks(tasksDatabaseId);
           tasksCount = tasks.length;
           tasksData = {
             count: tasksCount,
@@ -213,14 +239,14 @@ async function getNotionMetadata() {
               medium: tasks.filter((t: any) => t.priority === 'Medium').length,
               low: tasks.filter((t: any) => t.priority === 'Low').length,
             },
-            schema: await getNotionDatabaseSchema(db.id)
+            schema: await getNotionDatabaseSchema(tasksDatabaseId)
           };
         } catch (error) {
-          console.error(`Error getting tasks from database ${db.id}:`, error);
+          console.error(`Error getting tasks from database ${tasksDatabaseId}:`, error);
         }
-        
-        break;
       }
+    } catch (error) {
+      console.error("Error finding tasks database:", error);
     }
     
     // Cast pageInfo to any to handle TypeScript issues with Notion API types
@@ -250,6 +276,123 @@ async function getNotionMetadata() {
     };
   } catch (error) {
     console.error('Error generating Notion metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Collects metadata about GitHub repositories and user
+ */
+async function getGitHubMetadata() {
+  try {
+    const token = process.env.GITHUB_TOKEN!;
+    const headers = {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json'
+    };
+    
+    // Get user information
+    const userResponse = await axios.get('https://api.github.com/user', { headers });
+    const user = userResponse.data;
+    
+    // Get repositories
+    const reposResponse = await axios.get(`https://api.github.com/user/repos?per_page=100&sort=updated`, { headers });
+    const repos = reposResponse.data;
+    
+    // Process repository data
+    const repoStats = {
+      totalCount: repos.length,
+      languageCounts: {} as Record<string, number>,
+      stargazerSum: 0,
+      forkSum: 0,
+      issueSum: 0,
+      topStarred: [] as any[],
+      recentlyUpdated: [] as any[]
+    };
+    
+    // Extract language statistics
+    repos.forEach((repo: any) => {
+      if (repo.language) {
+        repoStats.languageCounts[repo.language] = (repoStats.languageCounts[repo.language] || 0) + 1;
+      }
+      
+      repoStats.stargazerSum += repo.stargazers_count;
+      repoStats.forkSum += repo.forks_count;
+      repoStats.issueSum += repo.open_issues_count;
+    });
+    
+    // Sort repos by stars and get top 5
+    repoStats.topStarred = [...repos]
+      .sort((a, b) => b.stargazers_count - a.stargazers_count)
+      .slice(0, 5)
+      .map(repo => ({
+        name: repo.name,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        language: repo.language,
+        description: repo.description,
+        url: repo.html_url
+      }));
+    
+    // Get 5 most recently updated repos
+    repoStats.recentlyUpdated = [...repos]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 5)
+      .map(repo => ({
+        name: repo.name,
+        updatedAt: repo.updated_at,
+        language: repo.language,
+        description: repo.description,
+        url: repo.html_url
+      }));
+    
+    // Get basic activity information
+    let activityData = [];
+    try {
+      const eventsResponse = await axios.get(`https://api.github.com/users/${user.login}/events?per_page=50`, { headers });
+      activityData = eventsResponse.data.slice(0, 10);
+    } catch (err) {
+      console.error("Failed to fetch GitHub activity data:", err);
+    }
+    
+    return {
+      user: {
+        login: user.login,
+        name: user.name,
+        avatarUrl: user.avatar_url,
+        publicRepos: user.public_repos,
+        followers: user.followers,
+        following: user.following,
+        company: user.company,
+        blog: user.blog,
+        location: user.location,
+        createdAt: user.created_at
+      },
+      repositories: repoStats,
+      recentActivity: activityData,
+      status: "active"
+    };
+  } catch (error: any) {
+    console.error("Error generating GitHub metadata:", error);
+    
+    const errorStatus = error.response?.status;
+    const errorMessage = error.response?.data?.message || error.message;
+    
+    // Check for specific error types
+    if (errorStatus === 401) {
+      return {
+        error: "Authentication failed. Please check your GitHub token.",
+        status: "error",
+        errorCode: "UNAUTHORIZED"
+      };
+    } else if (errorStatus === 403 && errorMessage.includes("rate limit")) {
+      return {
+        error: "GitHub API rate limit exceeded. Please try again later.",
+        status: "error",
+        errorCode: "RATE_LIMITED"
+      };
+    }
+    
     throw error;
   }
 }

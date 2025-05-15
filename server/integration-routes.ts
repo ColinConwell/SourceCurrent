@@ -143,9 +143,8 @@ export async function setupIntegrationRoutes(app: Express) {
           const notionData: any = {};
           
           try {
-            // This function should be implemented in notion-setup.ts
-            // For now we'll mock the tasks data structure
-            notionData.tasks = await getTasks("tasks_db_id");
+            // Find and query the tasks database without specifying an ID
+            notionData.tasks = await getTasks();
           } catch (tasksError: any) {
             console.error("Error fetching Notion tasks:", tasksError);
             notionData.tasks_error = tasksError.message;

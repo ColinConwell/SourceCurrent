@@ -110,38 +110,169 @@ export async function createDatabaseIfNotExists(title: string, properties: any) 
   });
 }
 
-// Example function to Get all tasks from the Notion database
-export async function getTasks(tasksDatabaseId: string) {
+/**
+ * Find any tasks database in the Notion workspace
+ * @returns Promise resolving to a database ID if found, or undefined if not
+ */
+export async function findTasksDatabase() {
   try {
+    // Get all databases
+    const databases = await getNotionDatabases();
+    
+    // Look for a database with "task", "todo", or "to-do" in the title
+    for (const db of databases) {
+      // Access title safely with type narrowing
+      // @ts-ignore - We know this is a DatabaseObjectResponse
+      if (db.title && Array.isArray(db.title) && db.title.length > 0) {
+        // @ts-ignore - We know this is a DatabaseObjectResponse
+        const title = db.title[0]?.plain_text || '';
+        const titleLower = title.toLowerCase();
+        
+        if (titleLower.includes('task') || 
+            titleLower.includes('todo') || 
+            titleLower.includes('to-do') ||
+            titleLower.includes('to do')) {
+          return db.id;
+        }
+      }
+    }
+    
+    // If no task database found, return the first database (if any)
+    if (databases.length > 0) {
+      return databases[0].id;
+    }
+    
+    return undefined;
+  } catch (error) {
+    console.error("Error finding tasks database:", error);
+    return undefined;
+  }
+}
+
+// Get all tasks from the Notion database
+export async function getTasks(tasksDatabaseId?: string) {
+  try {
+    // If no database ID provided, try to find a tasks database
+    if (!tasksDatabaseId) {
+      const foundDatabaseId = await findTasksDatabase();
+      
+      // If still no database ID, throw error
+      if (!foundDatabaseId) {
+        throw new Error("No tasks database found in Notion workspace");
+      }
+      
+      tasksDatabaseId = foundDatabaseId;
+    }
+    
+    console.log(`Querying Notion database: ${tasksDatabaseId}`);
+    
     const response = await notion.databases.query({
       database_id: tasksDatabaseId,
     });
+    
+    // Log the property structure of the first result to help with debugging
+    if (response.results.length > 0) {
+      const firstPage = response.results[0] as any;
+      console.log("Sample property names:", Object.keys(firstPage.properties));
+    }
 
     return response.results.map((page: any) => {
       const properties = page.properties;
-
-      const dueDate = properties.DueDate?.date?.start
-        ? new Date(properties.DueDate.date.start)
-        : null;
-
-      const completedAt = properties.CompletedAt?.date?.start
-        ? new Date(properties.CompletedAt.date.start)
-        : null;
+      
+      // Try to find properties by name or fallback to finding by type
+      const title = findPropertyValue(properties, 'Title', 'title') || 'Untitled Task';
+      const description = findPropertyValue(properties, 'Description', 'rich_text') || '';
+      const isCompleted = findPropertyValueByType(properties, 'checkbox') || false;
+      const section = findPropertyValue(properties, 'Section', 'select') || 'Uncategorized';
+      const priority = findPropertyValue(properties, 'Priority', 'select') || null;
+      const status = findPropertyValue(properties, 'Status', 'select') || null;
+      
+      // Find date properties
+      const dueDateProp = findPropertyByType(properties, 'date', 0);
+      const completedAtProp = findPropertyByType(properties, 'date', 1);
+      
+      const dueDate = dueDateProp?.date?.start ? new Date(dueDateProp.date.start) : null;
+      const completedAt = completedAtProp?.date?.start ? new Date(completedAtProp.date.start) : null;
 
       return {
         notionId: page.id,
-        title: properties.Title?.title?.[0]?.plain_text || "Untitled Task",
-        description: properties.Description?.rich_text?.[0]?.plain_text || "",
-        section: properties.Section?.select?.name || "Uncategorized",
-        isCompleted: properties.Completed?.checkbox || false,
+        title,
+        description,
+        section,
+        isCompleted,
         dueDate,
         completedAt,
-        priority: properties.Priority?.select?.name || null,
-        status: properties.Status?.select?.name || null,
+        priority,
+        status,
       };
     });
   } catch (error) {
     console.error("Error fetching tasks from Notion:", error);
     throw new Error("Failed to fetch tasks from Notion");
   }
+}
+
+/**
+ * Helper function to find a property by type
+ */
+function findPropertyByType(properties: Record<string, any>, type: string, index: number = 0) {
+  const keys = Object.keys(properties).filter(k => properties[k]?.type === type);
+  return keys.length > index ? properties[keys[index]] : null;
+}
+
+/**
+ * Helper function to find a property value by name and type
+ */
+function findPropertyValue(properties: Record<string, any>, name: string, type: string) {
+  // Try to find by exact name
+  if (properties[name] && properties[name].type === type) {
+    if (type === 'title' && properties[name].title.length > 0) {
+      return properties[name].title[0].plain_text;
+    } else if (type === 'rich_text' && properties[name].rich_text.length > 0) {
+      return properties[name].rich_text[0].plain_text;
+    } else if (type === 'select') {
+      return properties[name].select?.name;
+    } else if (type === 'checkbox') {
+      return properties[name].checkbox;
+    }
+  }
+  
+  // Try case-insensitive
+  const key = Object.keys(properties).find(k => 
+    k.toLowerCase() === name.toLowerCase() && properties[k].type === type);
+  
+  if (key) {
+    if (type === 'title' && properties[key].title.length > 0) {
+      return properties[key].title[0].plain_text;
+    } else if (type === 'rich_text' && properties[key].rich_text.length > 0) {
+      return properties[key].rich_text[0].plain_text;
+    } else if (type === 'select') {
+      return properties[key].select?.name;
+    } else if (type === 'checkbox') {
+      return properties[key].checkbox;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Helper function to find a property value by type only
+ */
+function findPropertyValueByType(properties: Record<string, any>, type: string) {
+  const property = findPropertyByType(properties, type);
+  
+  if (!property) return null;
+  
+  if (type === 'title' && property.title.length > 0) {
+    return property.title[0].plain_text;
+  } else if (type === 'rich_text' && property.rich_text.length > 0) {
+    return property.rich_text[0].plain_text;
+  } else if (type === 'select') {
+    return property.select?.name;
+  } else if (type === 'checkbox') {
+    return property.checkbox;
+  }
+  
+  return null;
 }
