@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
 import { getGitHubClientForConnection } from "./github-client";
+import { getLinearClientForConnection } from "./linear-client";
 import { storage } from "./storage";
 
 /**
@@ -300,6 +301,144 @@ export async function setupIntegrationRoutes(app: Express) {
       res.status(500).json({
         success: false,
         error: error.message || "Failed to generate integration dashboard"
+      });
+    }
+  });
+  
+  // Linear integration routes
+  
+  // Get Linear teams
+  app.get("/api/linear/teams", async (req: Request, res: Response) => {
+    try {
+      // Find the first Linear connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const linearConnection = connections.find(conn => conn.service === 'linear');
+      
+      if (!linearConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No Linear connection found"
+        });
+      }
+      
+      // Get Linear client for this connection
+      const linearClient = await getLinearClientForConnection(linearConnection.id);
+      
+      // Get teams
+      const teams = await linearClient.getTeams();
+      
+      res.json({
+        success: true,
+        data: teams
+      });
+    } catch (error: any) {
+      console.error("Error getting Linear teams:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get Linear teams"
+      });
+    }
+  });
+  
+  // Get Linear team issues
+  app.get("/api/linear/teams/:teamId/issues", async (req: Request, res: Response) => {
+    try {
+      const { teamId } = req.params;
+      
+      // Find the first Linear connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const linearConnection = connections.find(conn => conn.service === 'linear');
+      
+      if (!linearConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No Linear connection found"
+        });
+      }
+      
+      // Get Linear client for this connection
+      const linearClient = await getLinearClientForConnection(linearConnection.id);
+      
+      // Get team issues
+      const issues = await linearClient.getTeamIssues(teamId);
+      
+      res.json({
+        success: true,
+        data: issues
+      });
+    } catch (error: any) {
+      console.error(`Error getting Linear issues for team ${req.params.teamId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get Linear team issues"
+      });
+    }
+  });
+  
+  // Get Linear workflow states
+  app.get("/api/linear/workflow-states", async (req: Request, res: Response) => {
+    try {
+      // Find the first Linear connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const linearConnection = connections.find(conn => conn.service === 'linear');
+      
+      if (!linearConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No Linear connection found"
+        });
+      }
+      
+      // Get Linear client for this connection
+      const linearClient = await getLinearClientForConnection(linearConnection.id);
+      
+      // Get workflow states
+      const states = await linearClient.getWorkflowStates();
+      
+      res.json({
+        success: true,
+        data: states
+      });
+    } catch (error: any) {
+      console.error("Error getting Linear workflow states:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get Linear workflow states"
+      });
+    }
+  });
+  
+  // Get team data dictionary (for AI processing)
+  app.get("/api/linear/teams/:teamId/data", async (req: Request, res: Response) => {
+    try {
+      const { teamId } = req.params;
+      
+      // Find the first Linear connection
+      const connections = await storage.getConnections(1); // Using default user ID
+      const linearConnection = connections.find(conn => conn.service === 'linear');
+      
+      if (!linearConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No Linear connection found"
+        });
+      }
+      
+      // Get Linear client for this connection
+      const linearClient = await getLinearClientForConnection(linearConnection.id);
+      
+      // Get team data dictionary
+      const data = await linearClient.getTeamDataAsDictionary(teamId);
+      
+      res.json({
+        success: true,
+        data: data
+      });
+    } catch (error: any) {
+      console.error(`Error getting Linear team data for ${req.params.teamId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get Linear team data"
       });
     }
   });

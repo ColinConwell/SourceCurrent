@@ -3,6 +3,7 @@ import { getChannelDataAsDictionary } from "./slack-setup";
 import { getTasks, getNotionDatabases, findTasksDatabase, notion, NOTION_PAGE_ID } from "./notion-setup";
 import { storage } from "./storage";
 import { getGitHubClientForConnection, GitHubClient } from "./github-client";
+import { getLinearClientForConnection, LinearClient } from "./linear-client";
 import axios from "axios";
 
 /**
