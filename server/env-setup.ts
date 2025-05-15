@@ -97,15 +97,16 @@ export async function setupConnectionsFromEnv(): Promise<void> {
   }
   
   // Check for GitHub credentials
-  if (process.env.GITHUB_TOKEN && !existingConnectionsByService['github']) {
+  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && !existingConnectionsByService['github']) {
     try {
       const githubConnection: InsertConnection = {
         userId: demoUserId,
         name: "GitHub Account",
         service: "github",
         credentials: {
-          token: process.env.GITHUB_TOKEN,
-          description: "Auto-connected GitHub account"
+          clientId: process.env.GITHUB_CLIENT_ID,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET,
+          description: "Auto-connected GitHub account (OAuth)"
         },
         active: true
       };
@@ -163,7 +164,8 @@ export function checkEnvForService(service: string): boolean {
     case 'linear':
       return !!process.env.LINEAR_API_KEY;
     case 'github':
-      return !!process.env.GITHUB_TOKEN;
+      // Check for OAuth credentials
+      return !!process.env.GITHUB_CLIENT_ID && !!process.env.GITHUB_CLIENT_SECRET;
     case 'gdrive':
       // Google Drive typically needs more complex OAuth setup
       return false;

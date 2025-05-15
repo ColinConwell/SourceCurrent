@@ -7,6 +7,7 @@ import { getNotionClientForConnection } from "./notion-client";
 import { getLinearClientForConnection } from "./linear-client";
 import { getGDriveClientForConnection } from "./gdrive-client";
 import { z } from "zod";
+import axios from "axios";
 import { setupIntegrationRoutes } from "./integration-routes";
 import { getAvailableServicesFromEnv } from "./env-setup";
 
@@ -428,9 +429,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/:service', (req: Request, res: Response) => {
     const service = req.params.service;
     
+    // Create a state parameter to prevent CSRF attacks
+    const state = Math.random().toString(36).substring(2, 15);
+    
     // In a real app, this would redirect to the OAuth provider
-    // For demo purposes, we'll just return the auth URL info
     switch (service) {
+      case 'github':
+        // For GitHub, we'll actually implement the real OAuth flow
+        if (process.env.GITHUB_CLIENT_ID) {
+          const scopes = 'repo read:user user:email';
+          const redirectUri = process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`;
+          const authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&state=${state}`;
+          
+          res.redirect(authUrl);
+        } else {
+          res.status(500).json({ message: "GitHub client ID not configured" });
+        }
+        break;
+        
       case 'slack':
         res.json({
           auth_url: "https://slack.com/oauth/v2/authorize",
@@ -464,20 +480,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/:service/callback', (req: Request, res: Response) => {
-    // In a real app, this would handle the OAuth callback and exchange the code for tokens
-    // For demo purposes, we'll just acknowledge the callback
+  app.get('/api/auth/:service/callback', async (req: Request, res: Response) => {
+    // Handle OAuth callbacks for different services
     const service = req.params.service;
-    const code = req.query.code;
+    const code = req.query.code as string;
+    const state = req.query.state as string;
     
     if (!code) {
       return res.status(400).json({ message: "Missing authorization code" });
     }
-    
-    res.json({
-      message: `Received authorization code for ${service}`,
-      note: "In a real app, this would exchange the code for access tokens"
-    });
+
+    // For GitHub, implement the full OAuth flow
+    if (service === 'github') {
+      try {
+        // Exchange the code for an access token
+        const tokenResponse = await axios.post(
+          'https://github.com/login/oauth/access_token',
+          {
+            client_id: process.env.GITHUB_CLIENT_ID,
+            client_secret: process.env.GITHUB_CLIENT_SECRET,
+            code,
+            redirect_uri: process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`,
+          },
+          {
+            headers: {
+              Accept: 'application/json',
+            },
+          }
+        );
+
+        const accessToken = tokenResponse.data.access_token;
+        
+        if (!accessToken) {
+          throw new Error('Failed to obtain access token');
+        }
+
+        // Get user info to create a meaningful connection name
+        const userResponse = await axios.get('https://api.github.com/user', {
+          headers: {
+            Authorization: `token ${accessToken}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        });
+
+        const user = userResponse.data;
+        
+        // Create a connection for this GitHub account
+        const connection: InsertConnection = {
+          userId: 1, // Demo user
+          name: `${user.name || user.login}'s GitHub`,
+          service: 'github',
+          credentials: {
+            token: accessToken,
+          },
+          active: true,
+        };
+
+        const newConnection = await storage.createConnection(connection);
+        
+        // Create a data source for repositories
+        await storage.createDataSource({
+          connectionId: newConnection.id,
+          name: 'GitHub Repositories',
+          sourceId: 'repos',
+          sourceType: 'repository',
+          config: {
+            username: user.login,
+          },
+        });
+
+        // Create an activity record
+        await storage.createActivity({
+          userId: 1,
+          type: 'connection_created',
+          description: `Connected to GitHub as ${user.login}`,
+          metadata: {
+            service: 'github',
+            username: user.login,
+          },
+        });
+
+        // Redirect to the dashboard with success message
+        res.redirect('/?github=success');
+      } catch (error) {
+        console.error('GitHub OAuth error:', error);
+        res.redirect('/?github=error');
+      }
+    } else {
+      // For other services, we'd implement similar OAuth exchange flows
+      res.json({
+        message: `Received authorization code for ${service}`,
+        note: "This is a demo implementation. In a real app, this would exchange the code for access tokens."
+      });
+    }
   });
 
   return httpServer;
