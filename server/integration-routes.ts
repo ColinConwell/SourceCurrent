@@ -290,6 +290,58 @@ export async function setupIntegrationRoutes(app: Express) {
         integrationStatus.github = 'missing_credentials';
       }
       
+      // Get Linear data if credentials are available
+      if (process.env.LINEAR_API_KEY) {
+        try {
+          // Find the first Linear connection
+          const connections = await storage.getConnections(1); // Using default user ID
+          const linearConnection = connections.find(conn => conn.service === 'linear');
+          
+          if (linearConnection) {
+            // Get Linear client for this connection
+            const linearClient = await getLinearClientForConnection(linearConnection.id);
+            
+            // Get teams information
+            const teams = await linearClient.getTeams();
+            
+            // Get workflow states
+            const workflowStates = await linearClient.getWorkflowStates();
+            
+            // Get issues for the first team (if available)
+            let firstTeamIssues = [];
+            if (teams.length > 0) {
+              try {
+                firstTeamIssues = await linearClient.getTeamIssues(teams[0].id);
+              } catch (issuesError) {
+                console.error(`Error fetching issues for team ${teams[0].name}:`, issuesError);
+              }
+            }
+            
+            result.linear = {
+              teams: teams.map(team => ({
+                id: team.id,
+                name: team.name,
+                key: team.key,
+                description: team.description,
+                color: team.color
+              })),
+              workflowStates: workflowStates.slice(0, 5),
+              sampleIssues: firstTeamIssues.slice(0, 5)
+            };
+            
+            integrationStatus.linear = teams.length > 0 ? 'active' : 'error';
+          } else {
+            integrationStatus.linear = 'no_connection';
+          }
+        } catch (linearError: any) {
+          console.error("Error fetching Linear data:", linearError);
+          result.linear = { error: linearError.message };
+          integrationStatus.linear = 'error';
+        }
+      } else {
+        integrationStatus.linear = 'missing_credentials';
+      }
+      
       result.integrationStatus = integrationStatus;
       
       res.json({

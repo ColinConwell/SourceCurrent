@@ -85,6 +85,22 @@ export async function setupMetadataRoutes(app: Express) {
         };
       }
       
+      // Collect Linear metadata if available
+      try {
+        if (process.env.LINEAR_API_KEY) {
+          const linearData = await getLinearMetadata();
+          if (linearData) {
+            metadata.linear = linearData;
+          }
+        }
+      } catch (linearError: any) {
+        console.error("Error collecting Linear metadata:", linearError);
+        metadata.linear = { 
+          error: linearError.message,
+          status: "error" 
+        };
+      }
+      
       res.json({
         success: true,
         data: metadata
@@ -472,8 +488,114 @@ async function getGitHubMetadata(connectionId: number) {
 }
 
 /**
- * Legacy method to collect GitHub metadata using personal access token
+ * Collects metadata about Linear teams and issues
  */
+async function getLinearMetadata() {
+  try {
+    // Try to find an existing Linear connection
+    const connections = await storage.getConnections(1); // Using default user ID
+    const linearConnection = connections.find(conn => conn.service === 'linear');
+    
+    if (!linearConnection) {
+      return {
+        status: "no_connection",
+        message: "Linear API key available but no connection found"
+      };
+    }
+    
+    // Get Linear client for this connection
+    const linearClient = await getLinearClientForConnection(linearConnection.id);
+    
+    // Get teams information
+    const teams = await linearClient.getTeams();
+    
+    // Get workflow states
+    const workflowStates = await linearClient.getWorkflowStates();
+    
+    // Get issues for each team (limited to first 3 teams to avoid excessive API calls)
+    const teamIssues = [];
+    const teamsToProcess = teams.slice(0, 3); // Process up to 3 teams
+    
+    for (const team of teamsToProcess) {
+      try {
+        const issues = await linearClient.getTeamIssues(team.id);
+        teamIssues.push({
+          teamId: team.id,
+          teamName: team.name,
+          teamKey: team.key,
+          issueCount: issues.length,
+          issues: issues.slice(0, 5) // Only include first 5 issues per team
+        });
+      } catch (error) {
+        console.error(`Error fetching issues for team ${team.name}:`, error);
+        teamIssues.push({
+          teamId: team.id,
+          teamName: team.name,
+          teamKey: team.key,
+          error: "Failed to fetch issues"
+        });
+      }
+    }
+    
+    // Get current user/viewer information
+    let viewer = null;
+    try {
+      viewer = await linearClient.getViewer();
+    } catch (error) {
+      console.error("Error fetching Linear viewer info:", error);
+    }
+    
+    // Compile stats
+    const stats = {
+      teamCount: teams.length,
+      stateCount: workflowStates.length,
+      statesByType: {} as Record<string, number>,
+      teamsWithData: teamIssues.length
+    };
+    
+    // Categorize workflow states
+    workflowStates.forEach(state => {
+      if (state.type) {
+        stats.statesByType[state.type] = (stats.statesByType[state.type] || 0) + 1;
+      }
+    });
+    
+    return {
+      status: "active",
+      sourceType: "linear_api",
+      teams: teams.map(team => ({
+        id: team.id,
+        name: team.name,
+        key: team.key,
+        description: team.description,
+        color: team.color
+      })),
+      workflowStates: workflowStates.slice(0, 10).map(state => ({
+        id: state.id,
+        name: state.name,
+        type: state.type,
+        color: state.color,
+        teamId: state.team?.id,
+        teamName: state.team?.name
+      })),
+      teamIssues,
+      stats,
+      viewer: viewer ? {
+        id: viewer.id,
+        name: viewer.name,
+        email: viewer.email,
+        avatarUrl: viewer.avatarUrl
+      } : null
+    };
+  } catch (error: any) {
+    console.error("Error generating Linear metadata:", error);
+    return {
+      error: error.message,
+      status: "error"
+    };
+  }
+}
+
 async function getGitHubMetadataWithToken() {
   try {
     const token = process.env.GITHUB_TOKEN!;
