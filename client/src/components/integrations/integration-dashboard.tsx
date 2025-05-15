@@ -397,40 +397,6 @@ function MessageSkeleton() {
   );
 }
 
-function NotionLoadingSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-20 w-full rounded-md" />
-        <Skeleton className="h-20 w-full rounded-md" />
-      </div>
-      
-      <Skeleton className="h-5 w-32 mb-2" />
-      <div className="space-y-3">
-        <TaskSkeleton />
-        <TaskSkeleton />
-        <TaskSkeleton />
-        <TaskSkeleton />
-      </div>
-    </div>
-  );
-}
-
-function TaskSkeleton() {
-  return (
-    <div className="flex p-2">
-      <Skeleton className="w-5 h-5 rounded-full" />
-      <div className="ml-3 space-y-2 w-full">
-        <div className="flex items-center">
-          <Skeleton className="h-4 w-44" />
-          <Skeleton className="h-4 w-16 ml-2" />
-        </div>
-        <Skeleton className="h-3 w-3/4" />
-      </div>
-    </div>
-  );
-}
-
 function GitHubLoadingSkeleton() {
   return (
     <div className="space-y-4">
@@ -465,6 +431,40 @@ function RepoSkeleton() {
           <Skeleton className="h-3 w-12 mr-2" />
           <Skeleton className="h-3 w-12" />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function NotionLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Skeleton className="h-20 w-full rounded-md" />
+        <Skeleton className="h-20 w-full rounded-md" />
+      </div>
+      
+      <Skeleton className="h-5 w-32 mb-2" />
+      <div className="space-y-3">
+        <TaskSkeleton />
+        <TaskSkeleton />
+        <TaskSkeleton />
+        <TaskSkeleton />
+      </div>
+    </div>
+  );
+}
+
+function TaskSkeleton() {
+  return (
+    <div className="flex p-2">
+      <Skeleton className="w-5 h-5 rounded-full" />
+      <div className="ml-3 space-y-2 w-full">
+        <div className="flex items-center">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-4 w-16 ml-2" />
+        </div>
+        <Skeleton className="h-3 w-3/4" />
       </div>
     </div>
   );
