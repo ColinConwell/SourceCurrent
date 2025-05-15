@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +19,13 @@ interface DataSource {
   label: string;
   [key: string]: any;
 }
+
+// Memoized custom components to avoid key issues
+const MemoizedSelectItem = React.memo(({ itemKey, ...props }: { itemKey: string | number } & React.ComponentProps<typeof SelectItem>) => {
+  return <SelectItem key={itemKey} {...props} />;
+});
+
+MemoizedSelectItem.displayName = 'MemoizedSelectItem';
 
 export function IntegrationDataExplorer() {
   const [selectedTab, setSelectedTab] = useState("metadata");
@@ -49,6 +56,57 @@ export function IntegrationDataExplorer() {
       setSelectedDataSource(dataSources[0].sourceId);
     }
   }, [dataSources, selectedDataSource]);
+  
+  // Memoize components to prevent unnecessary rerenders
+  const connectionItems = useMemo(() => {
+    if (connections.length === 0) {
+      return [
+        <MemoizedSelectItem 
+          itemKey="no-connections" 
+          value="none" 
+          disabled
+          key="no-connections"
+        >
+          No connections available
+        </MemoizedSelectItem>
+      ];
+    }
+    
+    return connections.map((connection) => (
+      <MemoizedSelectItem
+        itemKey={connection.id}
+        value={connection.id.toString()}
+        key={connection.id}
+      >
+        {connection.name} ({connection.serviceType})
+      </MemoizedSelectItem>
+    ));
+  }, [connections]);
+  
+  const dataSourceItems = useMemo(() => {
+    if (!dataSources || dataSources.length === 0) {
+      return [
+        <MemoizedSelectItem 
+          itemKey="no-datasources" 
+          value="none" 
+          disabled
+          key="no-datasources"
+        >
+          No data sources available
+        </MemoizedSelectItem>
+      ];
+    }
+    
+    return dataSources.map((source) => (
+      <MemoizedSelectItem
+        itemKey={source.sourceId}
+        value={source.sourceId}
+        key={source.sourceId}
+      >
+        {source.label}
+      </MemoizedSelectItem>
+    ));
+  }, [dataSources]);
   
   return (
     <Card>
@@ -92,21 +150,7 @@ export function IntegrationDataExplorer() {
                       <SelectValue placeholder="Select a service" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[
-                        ...connections.map((connection: any) => (
-                          <SelectItem 
-                            key={connection.id} 
-                            value={connection.id.toString()}
-                          >
-                            {connection.name} ({connection.serviceType})
-                          </SelectItem>
-                        )),
-                        connections.length === 0 && (
-                          <SelectItem key="no-connections" value="none" disabled>
-                            No connections available
-                          </SelectItem>
-                        )
-                      ].filter(Boolean)}
+                      {connectionItems}
                     </SelectContent>
                   </Select>
                 )}
@@ -131,21 +175,7 @@ export function IntegrationDataExplorer() {
                       <SelectValue placeholder="Select a data source" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[
-                        ...(dataSources || []).map((source: any) => (
-                          <SelectItem 
-                            key={source.sourceId} 
-                            value={source.sourceId}
-                          >
-                            {source.label}
-                          </SelectItem>
-                        )),
-                        (!dataSources || dataSources.length === 0) && (
-                          <SelectItem key="no-datasources" value="none" disabled>
-                            No data sources available
-                          </SelectItem>
-                        )
-                      ].filter(Boolean)}
+                      {dataSourceItems}
                     </SelectContent>
                   </Select>
                 )}
