@@ -1,15 +1,13 @@
-import axios from "axios";
-import { storage } from "./storage";
+import axios from 'axios';
 
-// Base Linear client class for API calls
 export class LinearClient {
   private apiKey: string;
   private baseUrl = 'https://api.linear.app/graphql';
-  
+
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
-  
+
   private async executeQuery(query: string, variables: Record<string, any> = {}) {
     try {
       const response = await axios.post(
@@ -22,19 +20,18 @@ export class LinearClient {
           }
         }
       );
-      
+
       if (response.data.errors) {
         throw new Error(response.data.errors[0].message);
       }
-      
+
       return response.data.data;
-    } catch (error) {
-      console.error('Error executing Linear GraphQL query:', error);
-      throw new Error(`Failed to execute Linear query: ${error.message}`);
+    } catch (error: any) {
+      console.error('Linear API Error:', error.message);
+      throw error;
     }
   }
-  
-  // Get current user/viewer info
+
   async getViewer() {
     const query = `
       query {
@@ -42,16 +39,19 @@ export class LinearClient {
           id
           name
           email
-          avatarUrl
+          organization {
+            id
+            name
+            urlKey
+          }
         }
       }
     `;
-    
+
     const data = await this.executeQuery(query);
     return data.viewer;
   }
-  
-  // Get teams
+
   async getTeams() {
     const query = `
       query {
@@ -64,16 +64,30 @@ export class LinearClient {
             color
             createdAt
             updatedAt
+            states {
+              nodes {
+                id
+                name
+                type
+                color
+              }
+            }
+            labels {
+              nodes {
+                id
+                name
+                color
+              }
+            }
           }
         }
       }
     `;
-    
+
     const data = await this.executeQuery(query);
     return data.teams.nodes;
   }
-  
-  // Get issues for a team
+
   async getTeamIssues(teamId: string) {
     const query = `
       query($teamId: String!) {
@@ -81,34 +95,67 @@ export class LinearClient {
           issues {
             nodes {
               id
+              identifier
               title
               description
-              state {
-                id
-                name
-                color
-                type
-              }
               priority
               estimate
+              createdAt
+              updatedAt
+              archivedAt
+              completedAt
+              dueDate
+              number
+              url
+              creator {
+                id
+                name
+                email
+              }
               assignee {
                 id
                 name
                 email
               }
-              createdAt
-              updatedAt
+              state {
+                id
+                name
+                type
+                color
+              }
+              labels {
+                nodes {
+                  id
+                  name
+                  color
+                }
+              }
+              comments {
+                nodes {
+                  id
+                  body
+                  createdAt
+                  user {
+                    id
+                    name
+                  }
+                }
+              }
             }
           }
         }
       }
     `;
-    
+
     const data = await this.executeQuery(query, { teamId });
+    
+    if (!data.team) {
+      throw new Error(`Team with ID ${teamId} not found`);
+    }
+    
     return data.team.issues.nodes;
   }
-  
-  // Get all issue states
+
   async getWorkflowStates() {
     const query = `
       query {
@@ -116,6 +163,7 @@ export class LinearClient {
           nodes {
             id
             name
+            description
             color
             type
             team {
@@ -127,87 +175,105 @@ export class LinearClient {
         }
       }
     `;
-    
+
     const data = await this.executeQuery(query);
     return data.workflowStates.nodes;
   }
-  
-  // Convert to dictionary format
+
   async getTeamDataAsDictionary(teamId: string) {
     try {
+      // Get team details
       const team = (await this.getTeams()).find(t => t.id === teamId);
       if (!team) {
         throw new Error(`Team with ID ${teamId} not found`);
       }
-      
+
+      // Get team issues
       const issues = await this.getTeamIssues(teamId);
-      const workflowStates = await this.getWorkflowStates();
-      
-      // Create the dictionary structure
-      return {
-        team_info: {
-          id: team.id,
-          name: team.name,
-          key: team.key,
-          description: team.description,
-          color: team.color,
-          created_at: team.createdAt,
-          updated_at: team.updatedAt
-        },
+
+      // Get all workflow states
+      const states = await this.getWorkflowStates();
+      const teamStates = states.filter(state => state.team?.id === teamId);
+
+      // Prepare the team data in a structured dictionary format
+      const teamData = {
+        id: team.id,
+        name: team.name,
+        key: team.key,
+        description: team.description,
+        color: team.color,
+        states: teamStates.map(state => ({
+          id: state.id,
+          name: state.name,
+          type: state.type,
+          color: state.color
+        })),
         issues: issues.map(issue => ({
           id: issue.id,
+          identifier: issue.identifier,
           title: issue.title,
           description: issue.description,
-          state_id: issue.state.id,
-          state_name: issue.state.name,
-          state_type: issue.state.type,
           priority: issue.priority,
           estimate: issue.estimate,
+          createdAt: issue.createdAt,
+          updatedAt: issue.updatedAt,
+          completedAt: issue.completedAt,
+          dueDate: issue.dueDate,
+          state: issue.state ? {
+            id: issue.state.id,
+            name: issue.state.name,
+            type: issue.state.type
+          } : null,
           assignee: issue.assignee ? {
             id: issue.assignee.id,
-            name: issue.assignee.name,
-            email: issue.assignee.email
+            name: issue.assignee.name
           } : null,
-          created_at: issue.createdAt,
-          updated_at: issue.updatedAt
-        })),
-        workflow_states: workflowStates
-          .filter(state => state.team && state.team.id === teamId)
-          .map(state => ({
-            id: state.id,
-            name: state.name,
-            color: state.color,
-            type: state.type
-          }))
+          creator: issue.creator ? {
+            id: issue.creator.id,
+            name: issue.creator.name
+          } : null,
+          labels: issue.labels ? issue.labels.nodes.map((label: any) => ({
+            id: label.id,
+            name: label.name,
+            color: label.color
+          })) : [],
+          commentCount: issue.comments ? issue.comments.nodes.length : 0
+        }))
       };
+
+      return teamData;
     } catch (error) {
-      console.error('Error creating Linear dictionary:', error);
-      throw new Error(`Failed to create Linear data dictionary: ${error.message}`);
+      console.error(`Error getting Linear team data for ${teamId}:`, error);
+      throw error;
     }
   }
 }
 
-// Factory function to get a client for a specific connection
 export async function getLinearClientForConnection(connectionId: number): Promise<LinearClient> {
-  const connection = await storage.getConnection(connectionId);
-  
-  if (!connection) {
-    throw new Error(`Connection with ID ${connectionId} not found`);
+  try {
+    // Import storage here to avoid circular dependency
+    const { storage } = await import('./storage');
+    
+    // Get the connection details
+    const connection = await storage.getConnection(connectionId);
+    
+    if (!connection) {
+      throw new Error(`Connection with ID ${connectionId} not found`);
+    }
+    
+    if (connection.service !== 'linear') {
+      throw new Error(`Connection with ID ${connectionId} is not a Linear connection`);
+    }
+    
+    // Create Linear client
+    const apiKey = connection.credentials.api_key;
+    if (!apiKey) {
+      throw new Error('Linear API key not found in connection credentials');
+    }
+    
+    return new LinearClient(apiKey);
+  } catch (error: any) {
+    console.error('Error creating Linear client:', error.message);
+    throw error;
   }
-  
-  if (connection.service !== 'linear') {
-    throw new Error(`Connection ${connectionId} is not a Linear connection`);
-  }
-  
-  if (!connection.active) {
-    throw new Error(`Linear connection ${connectionId} is not active`);
-  }
-  
-  const credentials = connection.credentials as { api_key: string };
-  
-  if (!credentials.api_key) {
-    throw new Error(`Linear connection ${connectionId} has invalid credentials`);
-  }
-  
-  return new LinearClient(credentials.api_key);
 }

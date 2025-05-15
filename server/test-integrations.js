@@ -261,6 +261,137 @@ async function testGitHubIntegration() {
   }
 }
 
+// Function to test Linear integration
+async function testLinearIntegration() {
+  console.log(`\n${colors.yellow}Testing Linear Integration${colors.reset}`);
+  
+  const apiKey = process.env.LINEAR_API_KEY;
+  
+  if (!apiKey) {
+    console.log(`${colors.red}✗ LINEAR_API_KEY is not set${colors.reset}`);
+    return false;
+  }
+  
+  try {
+    // Test API connection
+    console.log(`${colors.blue}Testing API connection...${colors.reset}`);
+    
+    const baseUrl = 'https://api.linear.app/graphql';
+    const query = `
+      query {
+        viewer {
+          id
+          name
+          email
+        }
+      }
+    `;
+    
+    const response = await axios.post(
+      baseUrl,
+      { query },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+    
+    if (response.data.errors) {
+      throw new Error(response.data.errors[0].message);
+    }
+    
+    const viewer = response.data.data.viewer;
+    console.log(`${colors.green}✓ Connected to Linear as: ${viewer.name} (${viewer.email})${colors.reset}`);
+    
+    // Get teams
+    console.log(`${colors.blue}Testing team access...${colors.reset}`);
+    const teamsQuery = `
+      query {
+        teams {
+          nodes {
+            id
+            name
+            key
+          }
+        }
+      }
+    `;
+    
+    const teamsResponse = await axios.post(
+      baseUrl,
+      { query: teamsQuery },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+    
+    if (teamsResponse.data.errors) {
+      throw new Error(teamsResponse.data.errors[0].message);
+    }
+    
+    const teams = teamsResponse.data.data.teams.nodes;
+    if (teams.length > 0) {
+      console.log(`${colors.green}✓ Found ${teams.length} teams${colors.reset}`);
+      console.log(`${colors.blue}ℹ Teams: ${teams.map(team => team.name).join(', ')}${colors.reset}`);
+      
+      // Test issues for the first team
+      if (teams.length > 0) {
+        const firstTeam = teams[0];
+        console.log(`${colors.blue}Testing issues access for team ${firstTeam.name}...${colors.reset}`);
+        
+        const issuesQuery = `
+          query($teamId: String!) {
+            team(id: "${firstTeam.id}") {
+              issues {
+                nodes {
+                  id
+                  title
+                  state {
+                    name
+                  }
+                }
+              }
+            }
+          }
+        `;
+        
+        const issuesResponse = await axios.post(
+          baseUrl,
+          { 
+            query: issuesQuery,
+            variables: { teamId: firstTeam.id }
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            }
+          }
+        );
+        
+        if (issuesResponse.data.errors) {
+          throw new Error(issuesResponse.data.errors[0].message);
+        }
+        
+        const issues = issuesResponse.data.data.team.issues.nodes;
+        console.log(`${colors.green}✓ Found ${issues.length} issues for team ${firstTeam.name}${colors.reset}`);
+      }
+    } else {
+      console.log(`${colors.yellow}⚠ No teams found in the workspace${colors.reset}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.log(`${colors.red}✗ Linear connection failed: ${error.message}${colors.reset}`);
+    return false;
+  }
+}
+
 // Run all tests
 async function runTests() {
   console.log(`${colors.blue}Starting integration tests...${colors.reset}`);
@@ -268,13 +399,15 @@ async function runTests() {
   const slackResult = await testSlackIntegration();
   const notionResult = await testNotionIntegration();
   const githubResult = await testGitHubIntegration();
+  const linearResult = await testLinearIntegration();
   
   console.log(`\n${colors.cyan}=== Test Results Summary ===${colors.reset}`);
   console.log(`Slack:  ${slackResult ? colors.green + '✓ PASSED' : colors.red + '✗ FAILED'}${colors.reset}`);
   console.log(`Notion: ${notionResult ? colors.green + '✓ PASSED' : colors.red + '✗ FAILED'}${colors.reset}`);
   console.log(`GitHub: ${githubResult ? colors.green + '✓ PASSED' : colors.red + '✗ FAILED'}${colors.reset}`);
+  console.log(`Linear: ${linearResult ? colors.green + '✓ PASSED' : colors.red + '✗ FAILED'}${colors.reset}`);
   
-  const allPassed = slackResult && notionResult && githubResult;
+  const allPassed = slackResult && notionResult && githubResult && linearResult;
   
   if (allPassed) {
     console.log(`\n${colors.green}All integration tests passed! You're ready to go.${colors.reset}`);

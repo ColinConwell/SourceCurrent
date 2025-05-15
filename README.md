@@ -55,6 +55,9 @@ GITHUB_CLIENT_ID=your_client_id
 GITHUB_CLIENT_SECRET=your_client_secret
 GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----
 
+# Linear Integration
+LINEAR_API_KEY=lin_api_your_linear_api_key
+
 # JSON Web Token Secret (Optional)
 JWT_SECRET=your-very-secret-jwt-key
 ```
@@ -96,6 +99,14 @@ JWT_SECRET=your-very-secret-jwt-key
 5. Install the app on your account or organization
 6. Note the Installation ID from the URL after installation
 7. Add all these credentials to your `.env` file
+
+### Linear Setup
+1. Go to https://linear.app/settings/api
+2. Under "Personal API Keys", create a new API key
+3. Give the key a descriptive name like "Workspace Integration"
+4. Copy the API key (starting with `lin_api_`) to your `.env` file
+5. Set LINEAR_API_KEY=lin_api_your_key in your `.env` file
+6. The application will automatically detect your teams and create data sources for each
 
 ## 🏗️ Project Structure
 
