@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import axios from "axios";
 import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
 import { getGitHubClientForConnection } from "./github-client";
@@ -503,6 +504,52 @@ export async function setupIntegrationRoutes(app: Express) {
       // Try direct connection with environment variable
       if (process.env.LINEAR_API_KEY) {
         console.log("Testing Linear API key from environment variables...");
+        try {
+          // Try a direct Axios request to the Linear API (bypassing our client)
+          const response = await axios.post(
+            'https://api.linear.app/graphql',
+            {
+              query: `query { viewer { id name } }`
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.LINEAR_API_KEY}`
+              }
+            }
+          );
+          
+          console.log('Direct Linear API response:', JSON.stringify(response.data));
+          
+          if (response.data && response.data.data && response.data.data.viewer) {
+            return res.json({
+              success: true,
+              message: "Direct Linear API connection successful",
+              source: "direct_axios",
+              viewer: response.data.data.viewer
+            });
+          }
+        } catch (directError: any) {
+          console.error('Direct Linear API call error:', {
+            message: directError.message,
+            response: directError.response?.data || null
+          });
+          
+          // Return the error details to the client for debugging
+          return res.status(400).json({
+            success: false,
+            error: "Linear API authentication failed",
+            details: {
+              message: directError.message,
+              data: directError.response?.data || null,
+              apiKeyLastChars: process.env.LINEAR_API_KEY ? 
+                `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` : 
+                null
+            }
+          });
+        }
+        
+        // Try using our client
         const { LinearClient } = await import('./linear-client');
         const client = new LinearClient(process.env.LINEAR_API_KEY);
         
@@ -545,7 +592,12 @@ export async function setupIntegrationRoutes(app: Express) {
         return res.status(400).json({
           success: false,
           error: connectionTest.error || "Failed to connect to Linear API",
-          source: "connection"
+          source: "connection",
+          details: {
+            apiKeyLastChars: process.env.LINEAR_API_KEY ? 
+              `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` : 
+              null
+          }
         });
       }
     } catch (error: any) {
