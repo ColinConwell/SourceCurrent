@@ -91,98 +91,135 @@ interface TreeViewProps {
   data: any;
   level?: number;
   expandedByDefault?: boolean;
+  isKey?: boolean;
 }
 
-function TreeView({ data, level = 0, expandedByDefault = true }: TreeViewProps) {
-  // For top levels or array elements, expand by default, but collapse deeper nesting
-  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault && level < (level === 0 ? 4 : 2));
+function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: TreeViewProps) {
+  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault);
   
-  const toggle = (e: React.MouseEvent) => {
+  const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
   
-  // Primitive value rendering
+  // For primitive values
   if (data === null) {
     return <span className="text-gray-500">null</span>;
   }
-
+  
   if (data === undefined) {
     return <span className="text-gray-500">undefined</span>;
   }
-
+  
   if (typeof data === "string") {
-    return <span className="text-green-600">"{data}"</span>;
+    return <span className={isKey ? "text-red-600" : "text-green-600"}>"{data}"</span>;
   }
-
-  if (typeof data === "number" || typeof data === "boolean") {
+  
+  if (typeof data === "number") {
+    return <span className="text-blue-600">{data}</span>;
+  }
+  
+  if (typeof data === "boolean") {
     return <span className="text-blue-600">{String(data)}</span>;
   }
   
-  // Empty collections
-  if (Array.isArray(data) && data.length === 0) {
-    return <span className="text-gray-500">[]</span>;
+  // For objects and arrays
+  const isArray = Array.isArray(data);
+  const isEmpty = isArray ? data.length === 0 : Object.keys(data).length === 0;
+  
+  // For empty collections
+  if (isEmpty) {
+    return <span className="text-gray-600">{isArray ? "[]" : "{}"}</span>;
   }
   
-  if (typeof data === "object" && data !== null && Object.keys(data).length === 0) {
-    return <span className="text-gray-500">{"{}"}</span>;
-  }
-
-  // Determine if item is expandable
-  const isExpandable = (Array.isArray(data) && data.length > 0) || 
-                       (typeof data === "object" && data !== null && Object.keys(data).length > 0);
+  const keys = isArray ? Array.from({ length: data.length }, (_, i) => i) : Object.keys(data);
+  const openBracket = isArray ? "[" : "{";
+  const closeBracket = isArray ? "]" : "}";
   
-  // Collection rendering (arrays and objects)
-  if (isExpandable) {
-    const isArray = Array.isArray(data);
-    const bracketType = isArray ? ["[", "]"] : ["{", "}"];
-    const keys = isArray ? Object.keys(data).map(Number) : Object.keys(data);
-    
-    // For compact presentation
-    if (!isExpanded) {
-      return (
-        <span className="cursor-pointer inline-flex items-center" onClick={toggle}>
-          <span className="transform inline-block w-4 text-gray-600">▶</span>
-          <span className="text-gray-600">{bracketType[0]}</span>
-          <span className="text-gray-400 ml-1">
-            {isArray 
-              ? `${data.length} items` 
-              : `${Object.keys(data).length} properties`
-            }
-          </span>
-          <span className="text-gray-600 ml-1">{bracketType[1]}</span>
-        </span>
-      );
-    }
-    
-    // For expanded view
+  const indentSize = 2;
+  const indent = " ".repeat(indentSize * level);
+  const childIndent = " ".repeat(indentSize * (level + 1));
+  
+  // If collapsed, show a compact summary
+  if (!isExpanded) {
     return (
-      <div className="font-mono" style={{ marginLeft: level > 0 ? 10 : 0 }}>
-        <div className="cursor-pointer inline-flex items-center" onClick={toggle}>
-          <span className="transform inline-block w-4 text-gray-600" style={{transform: 'rotate(90deg)'}}>▶</span>
-          <span className="text-gray-600">{bracketType[0]}</span>
-        </div>
-        <div className="ml-3">
-          {keys.map((key, index) => (
-            <div key={isArray ? `${index}` : key.toString()} className="flex flex-wrap items-start mb-1">
-              <span className={`${isArray ? "text-gray-500" : "text-red-600"} font-medium ${isArray ? 'w-8 inline-block' : ''}`}>
-                {isArray ? `${key}:` : `"${key}":`}
-              </span>
-              <span className="inline-flex items-baseline flex-1">
-                <TreeView 
-                  data={data[key]} 
-                  level={level + 1} 
-                  expandedByDefault={expandedByDefault && level < 2}
-                />
-                {index < keys.length - 1 && <span className="text-gray-600 ml-1">,</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="text-gray-600">{bracketType[1]}</div>
-      </div>
+      <span className="font-mono whitespace-pre">
+        <span className="cursor-pointer text-gray-500" onClick={toggleExpand}>▶ </span>
+        <span className="text-gray-600">{openBracket}</span>
+        <span className="text-gray-400 ml-1">
+          {isArray 
+            ? (keys.length === 1 ? "1 item" : `${keys.length} items`)
+            : (keys.length === 1 ? "1 property" : `${keys.length} properties`)
+          }
+        </span>
+        <span className="text-gray-600">{closeBracket}</span>
+      </span>
     );
   }
-
-  return <span className="text-gray-500">{String(data)}</span>;
+  
+  // Full expanded view, JSON style
+  return (
+    <div className="font-mono whitespace-pre">
+      <span className="cursor-pointer" onClick={toggleExpand}>
+        <span className="text-gray-500 transform rotate-90 inline-block">▶ </span>
+        <span className="text-gray-600">{openBracket}</span>
+      </span>
+      <div>
+        {keys.map((key, index) => {
+          const actualKey = isArray ? Number(key) : key;
+          // For arrays with Object/Array values, show a collapsed preview
+          if (isArray && typeof data[actualKey] === 'object' && data[actualKey] !== null) {
+            const objectData = data[actualKey];
+            const itemCount = Array.isArray(objectData) ? objectData.length : Object.keys(objectData).length;
+            const itemType = Array.isArray(objectData) ? "items" : "properties";
+            
+            return (
+              <div key={`idx-${index}`} className="pl-4">
+                <span className="text-gray-500">{key}</span>
+                <span className="text-gray-600">: </span>
+                <TreeView 
+                  data={objectData} 
+                  level={level + 1} 
+                  expandedByDefault={false}
+                />
+                {index < keys.length - 1 && <span className="text-gray-600">,</span>}
+              </div>
+            );
+          }
+          
+          // Normal object properties or primitive array items
+          const itemValue = data[actualKey];
+          return (
+            <div key={isArray ? `idx-${index}` : key.toString()} className="pl-4">
+              {isArray ? (
+                // Array item (with index)
+                <>
+                  <span className="text-gray-500">{key}</span>
+                  <span className="text-gray-600">: </span>
+                  <TreeView 
+                    data={itemValue} 
+                    level={level + 1} 
+                    expandedByDefault={level < 1}
+                  />
+                </>
+              ) : (
+                // Object property (with key)
+                <>
+                  <span className="text-red-600">"{key}"</span>
+                  <span className="text-gray-600">: </span>
+                  <TreeView 
+                    data={itemValue} 
+                    level={level + 1} 
+                    expandedByDefault={level < 1}
+                  />
+                </>
+              )}
+              {index < keys.length - 1 && <span className="text-gray-600">,</span>}
+            </div>
+          );
+        })}
+      </div>
+      <span className="text-gray-600">{closeBracket}</span>
+    </div>
+  );
 }
