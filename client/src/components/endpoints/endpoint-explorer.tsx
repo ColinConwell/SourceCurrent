@@ -36,7 +36,7 @@ export function EndpointExplorer() {
   // Fetch available services
   const { data: services, isLoading: isLoadingServices } = useQuery({
     queryKey: ['/api/environment/services'],
-    select: (response) => response.data.availableServices
+    select: (response: any) => response.data.availableServices
   });
   
   // Fetch endpoints for the selected service

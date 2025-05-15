@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import AuthCallback from "@/pages/auth-callback";
+import Endpoints from "@/pages/endpoints";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/config" component={Dashboard} />
       <Route path="/activity" component={Dashboard} />
       <Route path="/help" component={Dashboard} />
+      <Route path="/endpoints" component={Endpoints} />
       <Route path="/auth/:service/callback" component={AuthCallback} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
