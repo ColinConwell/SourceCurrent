@@ -61,15 +61,15 @@ export function IntegrationDataExplorer() {
       <CardContent>
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="metadata">Metadata</TabsTrigger>
-            <TabsTrigger value="data">Raw Data</TabsTrigger>
+            <TabsTrigger key="metadata-tab" value="metadata">Metadata</TabsTrigger>
+            <TabsTrigger key="data-tab" value="data">Raw Data</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="metadata" className="space-y-4 pt-4">
+          <TabsContent key="metadata-content" value="metadata" className="space-y-4 pt-4">
             <ServiceMetadataViewer />
           </TabsContent>
           
-          <TabsContent value="data" className="space-y-4 pt-4">
+          <TabsContent key="data-content" value="data" className="space-y-4 pt-4">
             <div className="flex flex-col md:flex-row gap-4 mb-4">
               <div className="flex-1">
                 <label className="text-sm font-medium mb-1 block">
