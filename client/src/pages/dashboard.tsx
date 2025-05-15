@@ -6,6 +6,7 @@ import { DataPreview } from "@/components/dashboard/data-preview";
 import { PipelineSection } from "@/components/dashboard/pipeline-section";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { IntegrationDashboard } from "@/components/integrations/integration-dashboard";
+import { AutoConnectionsBanner } from "@/components/connections/auto-connections-banner";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,7 @@ export default function Dashboard() {
   
   return (
     <AppLayout>
+      <AutoConnectionsBanner />
       <Tabs defaultValue="overview" className="mb-8">
         <TabsList className="grid w-[400px] grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>

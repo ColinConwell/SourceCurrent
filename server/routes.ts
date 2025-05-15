@@ -398,6 +398,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ENVIRONMENT SERVICES ENDPOINT
+  // Returns information about available services based on environment variables
+  app.get('/api/environment/services', (_req: Request, res: Response) => {
+    try {
+      const availableServices = getAvailableServicesFromEnv();
+      
+      res.json({
+        success: true,
+        data: {
+          availableServices,
+          configured: Object.entries(availableServices)
+            .filter(([_, available]) => available)
+            .map(([service]) => service)
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   // OAUTH ROUTES
   // These would typically handle the OAuth flow for each service
   // For a demo, we can use simplified endpoints that would normally redirect to OAuth providers
