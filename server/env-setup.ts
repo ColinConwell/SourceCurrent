@@ -96,6 +96,40 @@ export async function setupConnectionsFromEnv(): Promise<void> {
     }
   }
   
+  // Check for GitHub credentials
+  if (process.env.GITHUB_TOKEN && !existingConnectionsByService['github']) {
+    try {
+      const githubConnection: InsertConnection = {
+        userId: demoUserId,
+        name: "GitHub Account",
+        service: "github",
+        credentials: {
+          token: process.env.GITHUB_TOKEN,
+          description: "Auto-connected GitHub account"
+        },
+        active: true
+      };
+      
+      const newConnection = await storage.createConnection(githubConnection);
+      addedConnections.push(newConnection);
+      console.log(`✓ Created GitHub connection: ${newConnection.name} (ID: ${newConnection.id})`);
+      
+      // Add a data source for repos
+      await storage.createDataSource({
+        connectionId: newConnection.id,
+        name: "GitHub Repositories",
+        sourceId: "repos", // Generic identifier for all repos
+        sourceType: "repository",
+        config: { 
+          repoType: "all" 
+        }
+      });
+      console.log(`  ↳ Added data source for GitHub repositories`);
+    } catch (error) {
+      console.error("Failed to create GitHub connection:", error);
+    }
+  }
+  
   // Check for other services (Linear, Google Drive, etc.)
   // We can add similar checks for other services as needed
   
@@ -128,6 +162,8 @@ export function checkEnvForService(service: string): boolean {
       return !!process.env.NOTION_INTEGRATION_SECRET && !!process.env.NOTION_PAGE_URL;
     case 'linear':
       return !!process.env.LINEAR_API_KEY;
+    case 'github':
+      return !!process.env.GITHUB_TOKEN;
     case 'gdrive':
       // Google Drive typically needs more complex OAuth setup
       return false;
@@ -144,6 +180,7 @@ export function getAvailableServicesFromEnv(): Record<string, boolean> {
   return {
     slack: checkEnvForService('slack'),
     notion: checkEnvForService('notion'),
+    github: checkEnvForService('github'),
     linear: checkEnvForService('linear'),
     gdrive: checkEnvForService('gdrive')
   };

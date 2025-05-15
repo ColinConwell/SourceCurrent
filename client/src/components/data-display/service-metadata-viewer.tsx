@@ -52,10 +52,11 @@ export function ServiceMetadataViewer() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue={hasSlack ? "slack" : (hasNotion ? "notion" : "none")}>
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue={hasSlack ? "slack" : (hasNotion ? "notion" : (hasGitHub ? "github" : "none"))}>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="slack" disabled={!hasSlack}>Slack</TabsTrigger>
             <TabsTrigger value="notion" disabled={!hasNotion}>Notion</TabsTrigger>
+            <TabsTrigger value="github" disabled={!hasGitHub}>GitHub</TabsTrigger>
           </TabsList>
           
           {hasSlack && (
@@ -70,7 +71,13 @@ export function ServiceMetadataViewer() {
             </TabsContent>
           )}
           
-          {!hasSlack && !hasNotion && (
+          {hasGitHub && (
+            <TabsContent value="github" className="space-y-4 pt-4">
+              <GitHubMetadata metadata={metadata.github} />
+            </TabsContent>
+          )}
+          
+          {!hasSlack && !hasNotion && !hasGitHub && (
             <div className="py-4 text-center text-muted-foreground">
               No service metadata available
             </div>
@@ -268,6 +275,145 @@ function NotionMetadata({ metadata }: NotionMetadataProps) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+interface GitHubMetadataProps {
+  metadata: any;
+}
+
+function GitHubMetadata({ metadata }: GitHubMetadataProps) {
+  if (!metadata || !metadata.user) {
+    return <div>No GitHub metadata available</div>;
+  }
+  
+  const { user, repositories } = metadata;
+  
+  // Format ISO date to readable format
+  const formatDate = (isoDate: string) => {
+    if (!isoDate) return "Unknown";
+    const date = new Date(isoDate);
+    return date.toLocaleDateString();
+  };
+  
+  // Get top languages from repository stats
+  const getTopLanguages = () => {
+    if (!repositories.languageCounts) return [];
+    
+    return Object.entries(repositories.languageCounts)
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
+      .slice(0, 5)
+      .map(([language, count]) => ({ 
+        language, 
+        count: count as number,
+        percentage: Math.round((count as number) / repositories.totalCount * 100)
+      }));
+  };
+  
+  const topLanguages = getTopLanguages();
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center">
+        {user.avatarUrl && (
+          <div className="mr-3 h-12 w-12 rounded-full overflow-hidden flex-shrink-0 border">
+            <img 
+              src={user.avatarUrl} 
+              alt={`${user.login}'s avatar`} 
+              className="h-full w-full object-cover"
+            />
+          </div>
+        )}
+        <div>
+          <h3 className="font-semibold">{user.name || user.login}</h3>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <span>{user.login}</span>
+            {user.location && (
+              <>
+                <span>•</span>
+                <span>{user.location}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="bg-muted/50 rounded-md p-3">
+          <h4 className="text-xs font-medium text-muted-foreground">Repositories</h4>
+          <p className="text-lg font-semibold">{repositories.totalCount}</p>
+        </div>
+        <div className="bg-muted/50 rounded-md p-3">
+          <h4 className="text-xs font-medium text-muted-foreground">Stars</h4>
+          <p className="text-lg font-semibold">{repositories.stargazerSum}</p>
+        </div>
+        <div className="bg-muted/50 rounded-md p-3">
+          <h4 className="text-xs font-medium text-muted-foreground">Followers</h4>
+          <p className="text-lg font-semibold">{user.followers}</p>
+        </div>
+        <div className="bg-muted/50 rounded-md p-3">
+          <h4 className="text-xs font-medium text-muted-foreground">Following</h4>
+          <p className="text-lg font-semibold">{user.following}</p>
+        </div>
+      </div>
+      
+      {topLanguages.length > 0 && (
+        <>
+          <Separator />
+          
+          <div>
+            <h3 className="font-semibold text-sm mb-2">Top Languages</h3>
+            <div className="space-y-2">
+              {topLanguages.map(({ language, count, percentage }) => (
+                <div key={language} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">{language}</span>
+                    <span className="text-muted-foreground">{percentage}% ({count} repos)</span>
+                  </div>
+                  <Progress value={percentage} className="h-1.5" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      
+      {repositories.topStarred && repositories.topStarred.length > 0 && (
+        <>
+          <Separator />
+          
+          <div>
+            <h3 className="font-semibold text-sm mb-2">Top Repositories</h3>
+            <div className="space-y-2">
+              {repositories.topStarred.map((repo: any) => (
+                <div key={repo.name} className="border rounded-md p-2">
+                  <div className="flex justify-between">
+                    <div className="font-medium text-sm">{repo.name}</div>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <span>⭐ {repo.stars}</span>
+                      <span className="mx-1">•</span>
+                      <span>🍴 {repo.forks}</span>
+                    </div>
+                  </div>
+                  {repo.description && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{repo.description}</p>
+                  )}
+                  {repo.language && (
+                    <Badge variant="outline" className="mt-2 text-xs">
+                      {repo.language}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      
+      <div className="text-xs text-muted-foreground mt-4">
+        <span>Member since: {formatDate(user.createdAt)}</span>
+      </div>
     </div>
   );
 }
