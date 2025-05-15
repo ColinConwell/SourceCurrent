@@ -7,11 +7,13 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import AuthCallback from "@/pages/auth-callback";
 import Endpoints from "@/pages/endpoints";
+import Integrations from "@/pages/integrations";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/integrations" component={Integrations} />
       <Route path="/config" component={Dashboard} />
       <Route path="/activity" component={Dashboard} />
       <Route path="/help" component={Dashboard} />

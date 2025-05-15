@@ -5,12 +5,9 @@ import { ConnectionsSection } from "@/components/connections/connections-section
 import { DataPreview } from "@/components/dashboard/data-preview";
 import { PipelineSection } from "@/components/dashboard/pipeline-section";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { IntegrationDashboard } from "@/components/dashboard/integration-dashboard";
-import { IntegrationDataExplorer } from "@/components/integrations/integration-data-explorer";
 import { AutoConnectionsBanner } from "@/components/connections/auto-connections-banner";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -42,25 +39,13 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <AutoConnectionsBanner />
-      <Tabs defaultValue="overview" className="mb-8">
-        <TabsList className="grid w-[400px] grid-cols-2">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" className="space-y-6 mt-6">
-          <OverviewStats />
-          <ConnectionsSection />
-          <DataPreview />
-          <PipelineSection />
-          <RecentActivity />
-        </TabsContent>
-        <TabsContent value="integrations" className="mt-6">
-          <div className="space-y-8">
-            <IntegrationDashboard />
-            <IntegrationDataExplorer />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="space-y-6 mb-8">
+        <OverviewStats />
+        <ConnectionsSection />
+        <DataPreview />
+        <PipelineSection />
+        <RecentActivity />
+      </div>
     </AppLayout>
   );
 }
