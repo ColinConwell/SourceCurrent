@@ -92,19 +92,21 @@ export function IntegrationDataExplorer() {
                       <SelectValue placeholder="Select a service" />
                     </SelectTrigger>
                     <SelectContent>
-                      {connections.map((connection: any) => (
-                        <SelectItem 
-                          key={connection.id} 
-                          value={connection.id.toString()}
-                        >
-                          {connection.name} ({connection.serviceType})
-                        </SelectItem>
-                      ))}
-                      {connections.length === 0 && (
-                        <SelectItem key="no-connections" value="none" disabled>
-                          No connections available
-                        </SelectItem>
-                      )}
+                      {[
+                        ...connections.map((connection: any) => (
+                          <SelectItem 
+                            key={connection.id} 
+                            value={connection.id.toString()}
+                          >
+                            {connection.name} ({connection.serviceType})
+                          </SelectItem>
+                        )),
+                        connections.length === 0 && (
+                          <SelectItem key="no-connections" value="none" disabled>
+                            No connections available
+                          </SelectItem>
+                        )
+                      ].filter(Boolean)}
                     </SelectContent>
                   </Select>
                 )}
@@ -129,19 +131,21 @@ export function IntegrationDataExplorer() {
                       <SelectValue placeholder="Select a data source" />
                     </SelectTrigger>
                     <SelectContent>
-                      {dataSources?.map((source: any) => (
-                        <SelectItem 
-                          key={source.sourceId} 
-                          value={source.sourceId}
-                        >
-                          {source.label}
-                        </SelectItem>
-                      ))}
-                      {(!dataSources || dataSources.length === 0) && (
-                        <SelectItem key="no-datasources" value="none" disabled>
-                          No data sources available
-                        </SelectItem>
-                      )}
+                      {[
+                        ...(dataSources || []).map((source: any) => (
+                          <SelectItem 
+                            key={source.sourceId} 
+                            value={source.sourceId}
+                          >
+                            {source.label}
+                          </SelectItem>
+                        )),
+                        (!dataSources || dataSources.length === 0) && (
+                          <SelectItem key="no-datasources" value="none" disabled>
+                            No data sources available
+                          </SelectItem>
+                        )
+                      ].filter(Boolean)}
                     </SelectContent>
                   </Select>
                 )}
