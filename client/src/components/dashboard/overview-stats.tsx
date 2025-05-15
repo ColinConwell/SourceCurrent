@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface Stats {
   connectedServices: number;
   dataSources: number;
-  dataFrames: number;
   lastSync: string;
 }
 
@@ -23,7 +22,6 @@ export function OverviewStats() {
   const stats: Stats = {
     connectedServices: connections?.filter(c => c.active).length || 0,
     dataSources: connections?.length || 0, // Simplified for demo
-    dataFrames: Math.max(connections?.length - 1, 0) || 0, // Simplified for demo
     lastSync: activities && activities.length > 0 
       ? formatLastSync(activities[0].createdAt) 
       : 'Never'
