@@ -106,7 +106,11 @@ export function EndpointList({
 
       {selectedEndpoint && (
         <div className="flex justify-end">
-          <Button disabled={isExecuting} size="sm">
+          <Button 
+            disabled={isExecuting} 
+            size="sm"
+            onClick={() => onSelectEndpoint(selectedEndpoint)}
+          >
             {isExecuting ? "Executing..." : "Execute Endpoint"}
           </Button>
         </div>

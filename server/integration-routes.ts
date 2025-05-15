@@ -13,6 +13,119 @@ import { storage } from "./storage";
 export async function setupIntegrationRoutes(app: Express) {
   console.log("Setting up integration routes...");
   
+  // API endpoints discovery endpoint
+  app.get("/api/endpoints", async (_req: Request, res: Response) => {
+    try {
+      const endpoints = {
+        slack: [
+          {
+            id: "slack-messages",
+            name: "Channel Messages",
+            description: "Get recent messages from a Slack channel",
+            endpoint: "/api/slack/messages",
+            method: "GET",
+            category: "Messages",
+          }
+        ],
+        notion: [
+          {
+            id: "notion-tasks",
+            name: "Tasks List",
+            description: "Get tasks from a Notion database",
+            endpoint: "/api/notion/tasks",
+            method: "GET",
+            category: "Databases",
+            params: [
+              {
+                name: "databaseId",
+                type: "string",
+                required: true,
+                description: "The ID of the Notion database"
+              }
+            ]
+          }
+        ],
+        github: [
+          {
+            id: "github-repos",
+            name: "Repositories",
+            description: "Get a list of GitHub repositories",
+            endpoint: "/api/github/repositories",
+            method: "GET",
+            category: "Repositories",
+          },
+          {
+            id: "github-repo-details",
+            name: "Repository Details",
+            description: "Get details about a specific GitHub repository",
+            endpoint: "/api/github/repositories/:owner/:repo",
+            method: "GET",
+            category: "Repositories",
+            params: [
+              {
+                name: "owner",
+                type: "string",
+                required: true,
+                description: "Repository owner"
+              },
+              {
+                name: "repo",
+                type: "string",
+                required: true,
+                description: "Repository name"
+              }
+            ]
+          }
+        ],
+        linear: [
+          {
+            id: "linear-teams",
+            name: "Teams",
+            description: "Get a list of Linear teams",
+            endpoint: "/api/linear/teams",
+            method: "GET",
+            category: "Teams",
+          },
+          {
+            id: "linear-workflow-states",
+            name: "Workflow States",
+            description: "Get workflow states from Linear",
+            endpoint: "/api/linear/workflow-states",
+            method: "GET",
+            category: "Workflows",
+          },
+          {
+            id: "linear-team-issues",
+            name: "Team Issues",
+            description: "Get issues for a specific Linear team",
+            endpoint: "/api/linear/teams/:teamId/issues",
+            method: "GET",
+            category: "Issues",
+            params: [
+              {
+                name: "teamId",
+                type: "string",
+                required: true,
+                description: "The ID of the Linear team"
+              }
+            ]
+          }
+        ]
+      };
+      
+      res.json({
+        success: true,
+        data: endpoints
+      });
+    } catch (error: any) {
+      console.error("Error getting API endpoints:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to get API endpoints"
+      });
+    }
+  });
+  
   // Get slack messages
   app.get("/api/slack/messages", async (req: Request, res: Response) => {
     try {

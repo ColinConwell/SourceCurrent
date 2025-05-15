@@ -34,11 +34,18 @@ export function EndpointExplorer() {
     : [];
 
   // Get endpoints for the selected service
-  const { data: endpointsData, isLoading: isLoadingEndpoints } = useQuery({
-    queryKey: ["/api/endpoints", selectedService],
+  const { data: endpointsData, isLoading: isLoadingEndpoints } = useQuery<
+    { success: boolean; data: Record<string, EndpointData[]>; }, 
+    Error,
+    EndpointData[]
+  >({
+    queryKey: ["/api/endpoints"],
     enabled: !!selectedService,
     select: (data) => {
-      return getEndpointsForService(selectedService as ServiceType);
+      if (data && data.success && data.data && selectedService) {
+        return data.data[selectedService] || [];
+      }
+      return [];
     }
   });
   
@@ -50,11 +57,46 @@ export function EndpointExplorer() {
     setResultData(null);
     
     try {
-      const response = await axios.get(selectedEndpoint.endpoint);
+      // For endpoints with parameters in the path, we need to handle them
+      let endpoint = selectedEndpoint.endpoint;
+      
+      // GitHub repository details endpoint with parameters
+      if (selectedEndpoint.id === "github-repo-details") {
+        endpoint = "/api/github/repositories/facebook/react"; // Default example
+      }
+      
+      // Linear team issues endpoint with parameters
+      if (selectedEndpoint.id === "linear-team-issues") {
+        // Get the first team ID from the Linear teams endpoint first
+        const teamsResponse = await axios.get("/api/linear/teams");
+        if (teamsResponse.data && teamsResponse.data.success && teamsResponse.data.data && teamsResponse.data.data.length > 0) {
+          const teamId = teamsResponse.data.data[0].id;
+          endpoint = `/api/linear/teams/${teamId}/issues`;
+        } else {
+          throw new Error("No Linear teams found to get issues for");
+        }
+      }
+      
+      // Notion tasks endpoint with parameters
+      if (selectedEndpoint.id === "notion-tasks") {
+        // At this point we would need a database ID, which we don't have
+        // We'll show a message to the user instead
+        setResultData({
+          error: "This endpoint requires a Notion database ID parameter. In a real application, you would select this from a list of available databases."
+        });
+        setIsExecuting(false);
+        return;
+      }
+      
+      const response = await axios.get(endpoint);
       setResultData(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error executing endpoint:", error);
-      setResultData({ error: "Failed to execute endpoint" });
+      setResultData({ 
+        error: "Failed to execute endpoint", 
+        message: error.message,
+        details: error.response?.data || "No additional details available"
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -176,72 +218,3 @@ export function EndpointExplorer() {
   );
 }
 
-// Temporary function to get endpoints for a service
-// This will be replaced with an actual API call
-function getEndpointsForService(service: string): EndpointData[] {
-  const typedService = service as ServiceType;
-  switch (service) {
-    case "slack":
-      return [
-        {
-          id: "slack-messages",
-          name: "Channel Messages",
-          description: "Get recent messages from a Slack channel",
-          endpoint: "/api/slack/messages",
-          method: "GET",
-          category: "Messages",
-        },
-      ];
-    case "notion":
-      return [
-        {
-          id: "notion-tasks",
-          name: "Tasks List",
-          description: "Get tasks from a Notion database",
-          endpoint: "/api/notion/tasks",
-          method: "GET",
-          category: "Databases",
-        },
-      ];
-    case "github":
-      return [
-        {
-          id: "github-repos",
-          name: "Repositories",
-          description: "Get a list of GitHub repositories",
-          endpoint: "/api/github/repositories",
-          method: "GET",
-          category: "Repositories",
-        },
-        {
-          id: "github-repo-details",
-          name: "Repository Details",
-          description: "Get details about a specific GitHub repository",
-          endpoint: "/api/github/repositories/facebook/react",
-          method: "GET",
-          category: "Repositories",
-        },
-      ];
-    case "linear":
-      return [
-        {
-          id: "linear-teams",
-          name: "Teams",
-          description: "Get a list of Linear teams",
-          endpoint: "/api/linear/teams",
-          method: "GET",
-          category: "Teams",
-        },
-        {
-          id: "linear-workflow-states",
-          name: "Workflow States",
-          description: "Get workflow states from Linear",
-          endpoint: "/api/linear/workflow-states",
-          method: "GET",
-          category: "Workflows",
-        }
-      ];
-    default:
-      return [];
-  }
-}
