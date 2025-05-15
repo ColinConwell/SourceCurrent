@@ -18,8 +18,8 @@ interface Activity {
   userId: number;
   type: string;
   description: string;
-  timestamp: string;
-  details?: any;
+  createdAt: string;
+  metadata?: any;
   status?: string;
 }
 
@@ -134,7 +134,7 @@ export default function ActivityPage() {
                       <div className="flex justify-between mb-1">
                         <span className="font-medium">{activity.description}</span>
                         <span className="text-sm text-neutral-500">
-                          {new Date(activity.timestamp).toLocaleString()}
+                          {new Date(activity.createdAt).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between">
