@@ -6,6 +6,7 @@ import { DataPreview } from "@/components/dashboard/data-preview";
 import { PipelineSection } from "@/components/dashboard/pipeline-section";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { IntegrationDashboard } from "@/components/integrations/integration-dashboard";
+import { IntegrationDataExplorer } from "@/components/data-display/integration-data-explorer";
 import { AutoConnectionsBanner } from "@/components/connections/auto-connections-banner";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -54,7 +55,10 @@ export default function Dashboard() {
           <RecentActivity />
         </TabsContent>
         <TabsContent value="integrations" className="mt-6">
-          <IntegrationDashboard />
+          <div className="space-y-8">
+            <IntegrationDashboard />
+            <IntegrationDataExplorer />
+          </div>
         </TabsContent>
       </Tabs>
     </AppLayout>

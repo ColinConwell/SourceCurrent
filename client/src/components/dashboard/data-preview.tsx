@@ -54,7 +54,9 @@ export function DataPreview() {
           return {
             label: `${c.name} - Channel Data`,
             connectionId: c.id,
-            sourceId: c.credentials?.channel || 'channel_default'
+            sourceId: typeof c.credentials === 'object' && c.credentials && 'channel' in c.credentials 
+              ? String(c.credentials.channel)
+              : 'channel_default'
           };
         case 'linear':
           return {
@@ -169,7 +171,7 @@ export function DataPreview() {
               <TabsContent value="tree" className="m-0">
                 <div className="p-4">
                   <JsonTreeViewer 
-                    data={sourceData?.data ? sourceData.data : {}} 
+                    data={sourceData && typeof sourceData === 'object' && 'data' in sourceData ? sourceData.data : {}} 
                     maxInitialDepth={2} 
                   />
                 </div>
@@ -178,7 +180,7 @@ export function DataPreview() {
               <TabsContent value="raw" className="m-0">
                 <div className="p-4 overflow-auto max-h-[500px]">
                   <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
-                    {JSON.stringify(sourceData?.data || {}, null, 2)}
+                    {JSON.stringify(sourceData && typeof sourceData === 'object' && 'data' in sourceData ? sourceData.data : {}, null, 2)}
                   </pre>
                 </div>
               </TabsContent>
