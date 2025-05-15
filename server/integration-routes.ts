@@ -514,7 +514,7 @@ export async function setupIntegrationRoutes(app: Express) {
             {
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.LINEAR_API_KEY}`
+                'Authorization': process.env.LINEAR_API_KEY
               }
             }
           );

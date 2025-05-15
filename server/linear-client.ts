@@ -18,7 +18,7 @@ export class LinearClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
+            'Authorization': this.apiKey
           }
         }
       );
