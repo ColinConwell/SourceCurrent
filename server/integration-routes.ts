@@ -495,5 +495,67 @@ export async function setupIntegrationRoutes(app: Express) {
     }
   });
   
+  // Test Linear connection
+  app.get("/api/linear/test-connection", async (_req: Request, res: Response) => {
+    try {
+      console.log("Testing Linear API connection...");
+      
+      // Try direct connection with environment variable
+      if (process.env.LINEAR_API_KEY) {
+        console.log("Testing Linear API key from environment variables...");
+        const { LinearClient } = await import('./linear-client');
+        const client = new LinearClient(process.env.LINEAR_API_KEY);
+        
+        const result = await client.testConnection();
+        
+        if (result.success) {
+          return res.json({
+            success: true,
+            message: "Linear API connection successful",
+            source: "environment",
+            viewer: result.viewer
+          });
+        } else {
+          console.log("Direct API key test failed, trying through connections...");
+        }
+      }
+      
+      // Try through connections
+      const connections = await storage.getConnections(1);
+      const linearConnection = connections.find(conn => conn.service === 'linear');
+      
+      if (!linearConnection) {
+        return res.status(404).json({
+          success: false,
+          error: "No Linear connection found"
+        });
+      }
+      
+      const linearClient = await getLinearClientForConnection(linearConnection.id);
+      const connectionTest = await linearClient.testConnection();
+      
+      if (connectionTest.success) {
+        return res.json({
+          success: true,
+          message: "Linear API connection successful",
+          source: "connection",
+          viewer: connectionTest.viewer
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: connectionTest.error || "Failed to connect to Linear API",
+          source: "connection"
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing Linear connection:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to test Linear connection"
+      });
+    }
+  });
+  
   console.log("Integration routes set up successfully");
 }

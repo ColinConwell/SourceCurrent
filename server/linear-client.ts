@@ -10,6 +10,8 @@ export class LinearClient {
 
   private async executeQuery(query: string, variables: Record<string, any> = {}) {
     try {
+      console.log('Linear API Query:', { query, variables });
+      
       const response = await axios.post(
         this.baseUrl,
         { query, variables },
@@ -22,34 +24,70 @@ export class LinearClient {
       );
 
       if (response.data.errors) {
+        console.error('Linear GraphQL Error:', JSON.stringify(response.data.errors));
         throw new Error(response.data.errors[0].message);
       }
 
       return response.data.data;
     } catch (error: any) {
-      console.error('Linear API Error:', error.message);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Linear API Error Response:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: JSON.stringify(error.response.data)
+        });
+        
+        // Log detailed error information if available
+        if (error.response.data && error.response.data.errors) {
+          console.error('Linear GraphQL Errors:', JSON.stringify(error.response.data.errors));
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Linear API Error Request:', error.request);
+      } else {
+        // Something happened in setting up the request
+        console.error('Linear API Error Setup:', error.message);
+      }
       throw error;
     }
   }
 
   async getViewer() {
+    // Simplified query to test API connectivity
     const query = `
       query {
         viewer {
           id
           name
-          email
-          organization {
-            id
-            name
-            urlKey
-          }
         }
       }
     `;
 
-    const data = await this.executeQuery(query);
-    return data.viewer;
+    try {
+      const data = await this.executeQuery(query);
+      return data.viewer;
+    } catch (error) {
+      console.error('Failed to get viewer info:', error);
+      return null;
+    }
+  }
+  
+  // Test method to check basic API connection
+  async testConnection() {
+    try {
+      const result = await this.getViewer();
+      return {
+        success: !!result,
+        viewer: result
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   async getTeams() {
