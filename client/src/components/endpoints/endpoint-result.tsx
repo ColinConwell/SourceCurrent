@@ -15,33 +15,36 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Results</h3>
-        <Card className="p-4 h-[400px]">
-          <div className="space-y-3">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </Card>
+        <div className="flex items-center justify-between">
+          <div>Executing request...</div>
+          <Tabs value={view} onValueChange={(v) => onChangeView(v as "treeview" | "json")}>
+            <TabsList className="grid w-[180px] grid-cols-2">
+              <TabsTrigger value="treeview">Tree View</TabsTrigger>
+              <TabsTrigger value="json">Raw JSON</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium">Results</h3>
-        <Card className="p-4 h-[400px] flex items-center justify-center">
-          <div className="text-center text-neutral-500">
-            <div className="text-3xl mb-2">
-              <i className="ri-article-line"></i>
-            </div>
-            <p>No data to display yet.</p>
-            <p className="text-sm">Execute an endpoint to see results here.</p>
+      <div className="h-[300px] flex items-center justify-center">
+        <div className="text-center text-neutral-500">
+          <div className="text-3xl mb-2">
+            <i className="ri-article-line"></i>
           </div>
-        </Card>
+          <p>No data to display yet.</p>
+          <p className="text-sm">Click the Execute button to see results here.</p>
+        </div>
       </div>
     );
   }
@@ -49,7 +52,16 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Results</h3>
+        <div>
+          {data.error ? (
+            <div className="text-red-500">Error occurred</div>
+          ) : (
+            <div className="flex items-center text-green-600">
+              <i className="ri-check-line mr-1"></i>
+              <span>Request successful</span>
+            </div>
+          )}
+        </div>
         <Tabs value={view} onValueChange={(v) => onChangeView(v as "treeview" | "json")}>
           <TabsList className="grid w-[180px] grid-cols-2">
             <TabsTrigger value="treeview">Tree View</TabsTrigger>
@@ -58,17 +70,19 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
         </Tabs>
       </div>
 
-      <Card className="p-4 h-[400px]">
-        <ScrollArea className="h-full max-h-[400px] pr-4">
-          {view === "treeview" ? (
-            <TreeView data={data} />
-          ) : (
-            <pre className="text-xs text-neutral-700 whitespace-pre-wrap overflow-x-auto">
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          )}
+      <div className="border rounded-md">
+        <ScrollArea className="h-[350px] pr-4">
+          <div className="p-4">
+            {view === "treeview" ? (
+              <TreeView data={data} />
+            ) : (
+              <pre className="text-xs text-neutral-700 whitespace-pre-wrap overflow-x-auto">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            )}
+          </div>
         </ScrollArea>
-      </Card>
+      </div>
     </div>
   );
 }
