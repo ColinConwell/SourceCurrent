@@ -13,11 +13,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/integrations" component={Integrations} />
       <Route path="/config" component={Dashboard} />
       <Route path="/activity" component={Dashboard} />
       <Route path="/help" component={Dashboard} />
       <Route path="/endpoints" component={Endpoints} />
+      <Route path="/integrations" component={Integrations} />
       <Route path="/auth/:service/callback" component={AuthCallback} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
