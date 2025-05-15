@@ -54,9 +54,9 @@ export function ServiceMetadataViewer() {
       <CardContent>
         <Tabs defaultValue={hasSlack ? "slack" : (hasNotion ? "notion" : (hasGitHub ? "github" : "none"))}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="slack" disabled={!hasSlack}>Slack</TabsTrigger>
-            <TabsTrigger value="notion" disabled={!hasNotion}>Notion</TabsTrigger>
-            <TabsTrigger value="github" disabled={!hasGitHub}>GitHub</TabsTrigger>
+            <TabsTrigger key="slack-tab" value="slack" disabled={!hasSlack}>Slack</TabsTrigger>
+            <TabsTrigger key="notion-tab" value="notion" disabled={!hasNotion}>Notion</TabsTrigger>
+            <TabsTrigger key="github-tab" value="github" disabled={!hasGitHub}>GitHub</TabsTrigger>
           </TabsList>
           
           {hasSlack && (
