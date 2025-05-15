@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 export function IntegrationDashboard() {
-  const [activeTab, setActiveTab] = useState<'slack' | 'notion'>('slack');
+  const [activeTab, setActiveTab] = useState<'slack' | 'notion' | 'github'>('slack');
   const { toast } = useToast();
   
   // Fetch integrated data from our API
@@ -39,6 +39,14 @@ export function IntegrationDashboard() {
           toast({
             title: "Notion Connection Issue",
             description: "There was a problem connecting to Notion. Check your API credentials.",
+            variant: "destructive"
+          });
+        }
+
+        if (status.github === 'error') {
+          toast({
+            title: "GitHub Connection Issue",
+            description: "There was a problem connecting to GitHub. Check your API credentials.",
             variant: "destructive"
           });
         }
@@ -76,8 +84,8 @@ export function IntegrationDashboard() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'slack' | 'notion')}>
-          <TabsList className="grid grid-cols-2 w-[300px]">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'slack' | 'notion' | 'github')}>
+          <TabsList className="grid grid-cols-3 w-[400px]">
             <TabsTrigger value="slack">
               <div className="flex items-center">
                 <div className="w-4 h-4 mr-2 rounded-sm" style={{ backgroundColor: '#4A154B' }}></div>
@@ -88,6 +96,12 @@ export function IntegrationDashboard() {
               <div className="flex items-center">
                 <div className="w-4 h-4 mr-2 rounded-sm bg-black"></div>
                 Notion
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="github">
+              <div className="flex items-center">
+                <div className="w-4 h-4 mr-2 rounded-sm bg-black"></div>
+                GitHub
               </div>
             </TabsTrigger>
           </TabsList>
@@ -248,6 +262,98 @@ export function IntegrationDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+          
+          <TabsContent value="github" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <div className="w-6 h-6 mr-2 rounded-sm bg-black">
+                    <i className="ri-github-fill text-white text-sm flex items-center justify-center h-full"></i>
+                  </div>
+                  GitHub Repositories
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <GitHubLoadingSkeleton />
+                ) : dashboardData?.data?.github?.repositories ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 mb-2">
+                      <div className="bg-blue-50 rounded-md p-3">
+                        <h3 className="text-sm font-medium text-blue-700">Total Repositories</h3>
+                        <p className="text-2xl font-semibold">{dashboardData.data.github.repositories.length}</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-md p-3">
+                        <h3 className="text-sm font-medium text-purple-700">App Installation</h3>
+                        <p className="text-2xl font-semibold">
+                          {dashboardData.data.github.app_info ? 'Active' : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-medium text-sm mb-2">Repository List</h3>
+                      <div className="border rounded-md divide-y">
+                        {dashboardData.data.github.repositories.slice(0, 5).map((repo: any, index: number) => (
+                          <div key={index} className="p-3">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
+                                {repo.owner && repo.owner.avatar_url ? (
+                                  <img 
+                                    src={repo.owner.avatar_url} 
+                                    alt={repo.owner.login || "Owner"} 
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <i className="ri-github-line text-neutral-600"></i>
+                                )}
+                              </div>
+                              <div className="ml-3">
+                                <div className="flex items-center">
+                                  <span className="font-medium text-sm">{repo.name}</span>
+                                  {repo.private && (
+                                    <Badge variant="outline" className="ml-2 text-xs">Private</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm mt-1 text-neutral-600">{repo.description || "No description"}</p>
+                                <div className="flex items-center mt-2 text-xs text-neutral-500">
+                                  {repo.language && (
+                                    <div className="mr-3 flex items-center">
+                                      <span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>
+                                      {repo.language}
+                                    </div>
+                                  )}
+                                  <div className="mr-3 flex items-center">
+                                    <i className="ri-star-line mr-1"></i>
+                                    {repo.stargazers_count || 0}
+                                  </div>
+                                  <div className="flex items-center">
+                                    <i className="ri-git-branch-line mr-1"></i>
+                                    {repo.forks_count || 0}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3">
+                      <i className="ri-github-line text-neutral-400 text-lg"></i>
+                    </div>
+                    <h3 className="font-medium mb-1">No GitHub Data Available</h3>
+                    <p className="text-sm text-neutral-500 mb-3">Unable to fetch data from GitHub. Check your API connection.</p>
+                    <Button size="sm" onClick={() => refetch()}>
+                      Try Again
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       )}
     </div>
@@ -320,6 +426,45 @@ function TaskSkeleton() {
           <Skeleton className="h-4 w-16 ml-2" />
         </div>
         <Skeleton className="h-3 w-3/4" />
+      </div>
+    </div>
+  );
+}
+
+function GitHubLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Skeleton className="h-20 w-full rounded-md" />
+        <Skeleton className="h-20 w-full rounded-md" />
+      </div>
+      
+      <Skeleton className="h-5 w-32 mb-2" />
+      <div className="space-y-3">
+        <RepoSkeleton />
+        <RepoSkeleton />
+        <RepoSkeleton />
+        <RepoSkeleton />
+      </div>
+    </div>
+  );
+}
+
+function RepoSkeleton() {
+  return (
+    <div className="flex p-2">
+      <Skeleton className="w-8 h-8 rounded-full" />
+      <div className="ml-3 space-y-2 w-full">
+        <div className="flex items-center">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-4 w-16 ml-2" />
+        </div>
+        <Skeleton className="h-3 w-3/4" />
+        <div className="flex items-center">
+          <Skeleton className="h-3 w-12 mr-2" />
+          <Skeleton className="h-3 w-12 mr-2" />
+          <Skeleton className="h-3 w-12" />
+        </div>
       </div>
     </div>
   );
