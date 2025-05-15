@@ -127,8 +127,9 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 // Service types (for frontends)
 export const serviceTypes = [
   { id: "slack", name: "Slack", icon: "slack-line", color: "#4A154B" },
-  { id: "linear", name: "Linear", icon: "terminal-box-line", color: "#5E6AD2" },
   { id: "notion", name: "Notion", icon: "file-text-line", color: "#000000" },
+  { id: "github", name: "GitHub", icon: "github-fill", color: "#24292E" },
+  { id: "linear", name: "Linear", icon: "terminal-box-line", color: "#5E6AD2" },
   { id: "gdrive", name: "Google Drive", icon: "google-drive-line", color: "#0F9D58" }
 ] as const;
 
