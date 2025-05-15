@@ -26,12 +26,58 @@ const GITHUB_PRIVATE_KEY = (() => {
   // Replace literal \n with actual newlines
   privateKey = privateKey.replace(/\\n/g, '\n');
   
+  // Check if key is missing newlines in the expected places
+  if (privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') && 
+      privateKey.includes('-----END RSA PRIVATE KEY-----') && 
+      !privateKey.includes('\n-----')) {
+    
+    // Add newline after BEGIN marker if missing
+    privateKey = privateKey.replace('-----BEGIN RSA PRIVATE KEY-----', '-----BEGIN RSA PRIVATE KEY-----\n');
+    
+    // Add newline before END marker if missing
+    privateKey = privateKey.replace('-----END RSA PRIVATE KEY-----', '\n-----END RSA PRIVATE KEY-----');
+    
+    // Add newline after END marker if missing
+    if (!privateKey.endsWith('\n')) {
+      privateKey += '\n';
+    }
+    
+    // Add newlines every 64 characters in the base64 content
+    const beginMarker = '-----BEGIN RSA PRIVATE KEY-----\n';
+    const endMarker = '\n-----END RSA PRIVATE KEY-----\n';
+    
+    if (privateKey.includes(beginMarker) && privateKey.includes(endMarker)) {
+      const contentStartIndex = privateKey.indexOf(beginMarker) + beginMarker.length;
+      const contentEndIndex = privateKey.indexOf(endMarker);
+      
+      if (contentStartIndex < contentEndIndex) {
+        const content = privateKey.substring(contentStartIndex, contentEndIndex);
+        
+        // If content doesn't have newlines, format it with newlines every 64 chars
+        if (!content.includes('\n')) {
+          const formattedContent = content.replace(/(.{64})/g, '$1\n');
+          privateKey = beginMarker + formattedContent + endMarker;
+        }
+      }
+    }
+  }
+  
   // Make sure the key is in the expected PEM format
   if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
     if (!privateKey.startsWith('-----')) {
-      privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`;
+      privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----\n`;
     }
   }
+  
+  // Log improved key structure for debugging
+  console.log('Private key structure:', {
+    totalLength: privateKey.length,
+    lineCount: privateKey.split('\n').length,
+    hasBeginMarker: privateKey.includes('-----BEGIN RSA PRIVATE KEY-----'),
+    hasEndMarker: privateKey.includes('-----END RSA PRIVATE KEY-----'),
+    firstLine: privateKey.split('\n')[0] || '',
+    lastLine: privateKey.split('\n').pop() || ''
+  });
   
   return privateKey;
 })();
@@ -470,6 +516,70 @@ export async function getGitHubClientForConnection(connectionId: number): Promis
       throw new Error(`Connection ${connectionId} is not a GitHub connection`);
     }
     
+    // Create dummy client for development when there are no credentials
+    // This will be removed once proper authentication is set up
+    if (process.env.NODE_ENV === 'development' && (!GITHUB_APP_ID || !GITHUB_INSTALLATION_ID || !GITHUB_PRIVATE_KEY)) {
+      console.warn('GitHub App credentials missing or invalid, creating mock client for development');
+      console.warn('Please configure proper GitHub App credentials for production use');
+      
+      // Create a pass-through GitHub client that returns empty data
+      const mockClient = new GitHubClient('dummy-token');
+      
+      // Override methods to return empty data
+      const originalRepoMethod = mockClient.getRepositories.bind(mockClient);
+      mockClient.getRepositories = async () => {
+        try {
+          return await originalRepoMethod();
+        } catch (error) {
+          console.warn('Using mock repositories for development');
+          return [];
+        }
+      };
+      
+      const originalInstallRepoMethod = mockClient.getInstallationRepositories.bind(mockClient);
+      mockClient.getInstallationRepositories = async () => {
+        try {
+          return await originalInstallRepoMethod();
+        } catch (error) {
+          console.warn('Using mock installation repositories for development');
+          return [];
+        }
+      };
+      
+      const originalRepoDataMethod = mockClient.getRepositoryDataAsDictionary.bind(mockClient);
+      mockClient.getRepositoryDataAsDictionary = async (owner, repo) => {
+        try {
+          return await originalRepoDataMethod(owner, repo);
+        } catch (error) {
+          console.warn(`Using mock repository data for ${owner}/${repo} in development`);
+          return {
+            id: 0,
+            name: repo,
+            fullName: `${owner}/${repo}`,
+            description: "Repository data not available - using placeholder",
+            url: `https://github.com/${owner}/${repo}`,
+            stars: 0,
+            forks: 0,
+            watchersCount: 0,
+            issuesCount: 0,
+            language: null,
+            topics: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            pushedAt: new Date().toISOString(),
+            branch: "main",
+            isPrivate: false,
+            hasWiki: false,
+            hasIssues: false,
+            commits: [],
+            contributors: []
+          };
+        }
+      };
+      
+      return mockClient;
+    }
+    
     // Try to use GitHub App authentication if app credentials are available
     if (GITHUB_APP_ID && GITHUB_INSTALLATION_ID && GITHUB_PRIVATE_KEY) {
       try {
@@ -478,6 +588,8 @@ export async function getGitHubClientForConnection(connectionId: number): Promis
       } catch (appError) {
         console.error('Error creating GitHub App client, falling back to token authentication:', appError);
       }
+    } else {
+      console.warn('GitHub App credentials not fully configured, falling back to token');
     }
     
     // Fallback to OAuth token if available
