@@ -24,7 +24,8 @@ export async function setupConnectionsFromEnv(): Promise<void> {
   const addedConnections: Connection[] = [];
   
   // Available integrations with environment variables
-  console.log(`Available API integrations from environment: ${Object.entries(getAvailableServicesFromEnv())
+  const availableServices = getAvailableServicesFromEnv();
+  console.log(`Available API integrations from environment: ${Object.entries(availableServices)
     .filter(([_, available]) => available)
     .map(([service]) => service)
     .join(', ')}`);
