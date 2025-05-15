@@ -5,7 +5,7 @@ import { ConnectionsSection } from "@/components/connections/connections-section
 import { DataPreview } from "@/components/dashboard/data-preview";
 import { PipelineSection } from "@/components/dashboard/pipeline-section";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { IntegrationDashboard } from "@/components/integrations/integration-dashboard";
+import { IntegrationDashboard } from "@/components/dashboard/integration-dashboard";
 import { IntegrationDataExplorer } from "@/components/integration/integration-data-explorer";
 import { AutoConnectionsBanner } from "@/components/connections/auto-connections-banner";
 import { useQuery } from "@tanstack/react-query";

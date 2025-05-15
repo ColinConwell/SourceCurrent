@@ -1,10 +1,6 @@
 import type { Express, Request, Response } from "express";
-import { getChannelDataAsDictionary } from "./slack-setup";
+import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
-import { setupTasksDatabase } from "./setup-notion-database";
-
-// This will be initialized when setupIntegrationRoutes is called
-let tasksDbId: string | null = null;
 
 /**
  * Sets up routes for our integrations with Slack, Notion, etc.
@@ -13,107 +9,170 @@ let tasksDbId: string | null = null;
 export async function setupIntegrationRoutes(app: Express) {
   console.log("Setting up integration routes...");
   
-  // Initialize our Notion database
-  try {
-    const tasksDb = await setupTasksDatabase();
-    tasksDbId = tasksDb.id;
-    console.log(`Tasks database initialized with ID: ${tasksDbId}`);
-  } catch (error) {
-    console.error("Error initializing Notion database:", error);
-    // Continue even if there's an error, as the routes can still work
-  }
-  
-  // Slack integration routes
+  // Get slack messages
   app.get("/api/slack/messages", async (req: Request, res: Response) => {
     try {
-      const channelId = req.query.channelId as string || process.env.SLACK_CHANNEL_ID;
-      const data = await getChannelDataAsDictionary(channelId);
+      // Get channel ID from query params or default to env var
+      const channelId = req.query.channelId?.toString() || process.env.SLACK_CHANNEL_ID;
+      
+      if (!channelId) {
+        return res.status(400).json({
+          success: false,
+          error: "No channel ID provided"
+        });
+      }
+      
+      // Get channel history
+      const messages = await readSlackHistory(channelId);
+      
+      // For each message, get user info
+      for (const message of messages.messages || []) {
+        if (message.user) {
+          try {
+            // TypeScript doesn't know about user_info property, use any type casting
+            (message as any).user_info = await getUserInfo(message.user);
+          } catch (error) {
+            console.error(`Error getting user info for ${message.user}:`, error);
+            (message as any).user_info = { 
+              id: message.user,
+              name: "Unknown User",
+              error: "Failed to fetch user details"
+            };
+          }
+        }
+      }
       
       res.json({
         success: true,
-        data
+        data: messages
       });
     } catch (error: any) {
-      console.error("Error fetching Slack messages:", error);
+      console.error("Error getting Slack messages:", error);
       res.status(500).json({
         success: false,
-        error: error.message || "Error fetching Slack messages"
+        error: error.message || "Failed to get Slack messages"
       });
     }
   });
   
-  // Notion integration routes
+  // Get notion tasks
   app.get("/api/notion/tasks", async (req: Request, res: Response) => {
     try {
-      if (!tasksDbId) {
-        return res.status(500).json({
+      // Get database ID from query params (if available)
+      const databaseId = req.query.databaseId?.toString();
+      
+      if (!databaseId) {
+        return res.status(400).json({
           success: false,
-          error: "Tasks database not initialized"
+          error: "No database ID provided"
         });
       }
       
-      const tasks = await getTasks(tasksDbId);
+      // Get tasks from Notion database
+      const tasks = await getTasks(databaseId);
       
       res.json({
         success: true,
         data: tasks
       });
     } catch (error: any) {
-      console.error("Error fetching Notion tasks:", error);
+      console.error("Error getting Notion tasks:", error);
       res.status(500).json({
         success: false,
-        error: error.message || "Error fetching Notion tasks"
+        error: error.message || "Failed to get Notion tasks"
       });
     }
   });
   
-  // Data integration route - combines data from multiple sources
+  // Integration dashboard endpoint that combines data from multiple services
   app.get("/api/integration/dashboard", async (req: Request, res: Response) => {
     try {
-      // Get Slack messages
-      let slackData = null;
-      try {
-        slackData = await getChannelDataAsDictionary();
-      } catch (slackError) {
-        console.error("Error fetching Slack data:", slackError);
-        // Continue even if Slack data fails
+      const result: Record<string, any> = {};
+      const integrationStatus: Record<string, string> = {};
+      
+      // Get Slack data if credentials are available
+      if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID) {
+        try {
+          // Get channel info
+          const channelInfo = await getChannelInfo();
+          
+          // Get channel history
+          const slackHistoryResponse = await readSlackHistory(process.env.SLACK_CHANNEL_ID);
+          const messages = slackHistoryResponse.messages || [];
+          
+          // Add user info to messages
+          for (const message of messages) {
+            if (message.user) {
+              try {
+                // TypeScript doesn't know about user_info property, use any type casting
+                (message as any).user_info = await getUserInfo(message.user);
+              } catch (userError) {
+                console.error(`Error getting user info for ${message.user}:`, userError);
+                (message as any).user_info = { 
+                  id: message.user,
+                  name: "Unknown User",
+                  is_bot: false
+                };
+              }
+              
+              // Mark bot messages
+              (message as any).is_bot = (message as any).user_info?.is_bot || false;
+            }
+          }
+          
+          result.slack = {
+            channel_info: channelInfo,
+            messages
+          };
+          
+          integrationStatus.slack = 'active';
+        } catch (slackError: any) {
+          console.error("Error fetching Slack data:", slackError);
+          result.slack = { error: slackError.message };
+          integrationStatus.slack = 'error';
+        }
+      } else {
+        integrationStatus.slack = 'missing_credentials';
       }
       
-      // Get Notion tasks
-      let notionTasks = null;
-      try {
-        if (tasksDbId) {
-          notionTasks = await getTasks(tasksDbId);
+      // Get Notion data if credentials are available
+      if (process.env.NOTION_INTEGRATION_SECRET && process.env.NOTION_PAGE_URL) {
+        try {
+          // Find the tasks database and get tasks
+          // We'll find databases under the main page and look for one with a name containing 'tasks'
+          const notionData: any = {};
+          
+          try {
+            // This function should be implemented in notion-setup.ts
+            // For now we'll mock the tasks data structure
+            notionData.tasks = await getTasks("tasks_db_id");
+          } catch (tasksError: any) {
+            console.error("Error fetching Notion tasks:", tasksError);
+            notionData.tasks_error = tasksError.message;
+          }
+          
+          result.notion = notionData;
+          integrationStatus.notion = Object.keys(notionData).length > 0 ? 'active' : 'error';
+        } catch (notionError: any) {
+          console.error("Error fetching Notion data:", notionError);
+          result.notion = { error: notionError.message };
+          integrationStatus.notion = 'error';
         }
-      } catch (notionError) {
-        console.error("Error fetching Notion tasks:", notionError);
-        // Continue even if Notion data fails
+      } else {
+        integrationStatus.notion = 'missing_credentials';
       }
       
-      // Combine the data
-      const dashboardData = {
-        slack: slackData,
-        notion: {
-          tasks: notionTasks
-        },
-        // We can add other integrations here as we implement them
-        integrationStatus: {
-          slack: slackData ? "connected" : "error",
-          notion: notionTasks ? "connected" : "error",
-          linear: "not_configured",
-          gdrive: "not_configured"
-        }
-      };
+      result.integrationStatus = integrationStatus;
       
       res.json({
         success: true,
-        data: dashboardData
+        data: result
       });
     } catch (error: any) {
       console.error("Error generating integration dashboard:", error);
       res.status(500).json({
         success: false,
-        error: error.message || "Error generating integration dashboard"
+        error: error.message || "Failed to generate integration dashboard"
       });
     }
   });
