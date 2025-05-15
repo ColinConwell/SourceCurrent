@@ -15,44 +15,145 @@ type ServiceType = "slack" | "notion" | "github" | "linear";
 export function EndpointExplorer() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointData | null>(null);
-  const [resultView, setResultView] = useState<"treeview" | "json">("treeview");
-  const [isExecuting, setIsExecuting] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
-  const [showCurl, setShowCurl] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [resultView, setResultView] = useState<"treeview" | "json">("treeview");
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
+  const [showCurl, setShowCurl] = useState(false);
 
-  // Get services that are available in the environment
-  const { data: servicesData } = useQuery<{
-    success: boolean;
-    data: {
-      availableServices: Record<string, boolean>;
-    };
-  }>({
-    queryKey: ["/api/environment/services"],
+  // Get available services info
+  const { data: servicesData } = useQuery({
+    queryKey: ['/api/environment/services'],
   });
-  
-  const services = servicesData?.data?.availableServices
-    ? Object.keys(servicesData.data.availableServices).filter(
-        (service) => servicesData.data.availableServices[service]
-      )
-    : [];
 
-  // Get endpoints for the selected service
-  const { data: endpointsData, isLoading: isLoadingEndpoints } = useQuery<
-    { success: boolean; data: Record<string, EndpointData[]>; }, 
-    Error,
-    EndpointData[]
-  >({
-    queryKey: ["/api/endpoints"],
-    enabled: !!selectedService,
-    select: (data) => {
-      if (data && data.success && data.data && selectedService) {
-        return data.data[selectedService] || [];
-      }
-      return [];
+  const availableServices = servicesData?.data?.availableServices || {
+    slack: false,
+    notion: false,
+    github: false,
+    linear: false,
+  };
+
+  // Generate endpoints based on selected service
+  const endpoints = React.useMemo(() => {
+    if (!selectedService) return [];
+
+    switch (selectedService) {
+      case "slack":
+        return [
+          {
+            id: "slack-messages",
+            name: "List Messages",
+            description: "Get messages from a Slack channel",
+            endpoint: "/api/slack/messages",
+            method: "GET" as const,
+            params: [
+              {
+                name: "limit",
+                type: "number",
+                description: "Maximum number of messages to return",
+                required: false
+              }
+            ]
+          }
+        ];
+      case "notion":
+        return [
+          {
+            id: "notion-tasks",
+            name: "List Tasks",
+            description: "Get task items from a Notion database",
+            endpoint: "/api/notion/tasks",
+            method: "GET" as const,
+            params: [
+              {
+                name: "databaseId",
+                type: "string",
+                description: "ID of the Notion database to query",
+                required: true
+              },
+              {
+                name: "filter",
+                type: "string",
+                description: "Filter criteria in JSON format",
+                required: false
+              }
+            ]
+          }
+        ];
+      case "github":
+        return [
+          {
+            id: "github-repositories",
+            name: "List Repositories",
+            description: "Get repositories from GitHub",
+            endpoint: "/api/github/repositories",
+            method: "GET" as const,
+          },
+          {
+            id: "github-repo-details",
+            name: "Repository Details",
+            description: "Get detailed information about a specific repository",
+            endpoint: "/api/github/repositories/:owner/:repo",
+            method: "GET" as const,
+            params: [
+              {
+                name: "owner",
+                type: "string",
+                description: "Repository owner (username or organization)",
+                required: true
+              },
+              {
+                name: "repo",
+                type: "string",
+                description: "Repository name",
+                required: true
+              }
+            ]
+          }
+        ];
+      case "linear":
+        return [
+          {
+            id: "linear-teams",
+            name: "List Teams",
+            description: "Get teams from Linear",
+            endpoint: "/api/linear/teams",
+            method: "GET" as const,
+          },
+          {
+            id: "linear-team-issues",
+            name: "Team Issues",
+            description: "Get issues for a specific team",
+            endpoint: "/api/linear/teams/:teamId/issues",
+            method: "GET" as const,
+            params: [
+              {
+                name: "teamId",
+                type: "string",
+                description: "Linear team ID",
+                required: true
+              },
+              {
+                name: "status",
+                type: "string",
+                description: "Filter by status (e.g., todo, in_progress, done)",
+                required: false
+              }
+            ]
+          },
+          {
+            id: "linear-workflow-states",
+            name: "Workflow States",
+            description: "Get all workflow states",
+            endpoint: "/api/linear/workflow-states",
+            method: "GET" as const,
+          }
+        ];
+      default:
+        return [];
     }
-  });
-  
+  }, [selectedService]);
+
   // Execute the selected endpoint
   const executeEndpoint = async () => {
     if (!selectedEndpoint) return;
@@ -168,184 +269,164 @@ export function EndpointExplorer() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>API Endpoint Explorer</CardTitle>
+        <CardHeader>
+          <CardTitle>Select Service</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {selectedService ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-100">
-                  {selectedService === "slack" && <i className="ri-slack-line text-xl text-primary-600"></i>}
-                  {selectedService === "notion" && <i className="ri-file-list-line text-xl text-primary-600"></i>}
-                  {selectedService === "github" && <i className="ri-github-fill text-xl text-primary-600"></i>}
-                  {selectedService === "linear" && <i className="ri-line-chart-line text-xl text-primary-600"></i>}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold capitalize">{selectedService}</h3>
-                  <p className="text-sm text-neutral-500">API Endpoints</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setSelectedService(null)}>
-                Change Service
-              </Button>
-            </div>
-          ) : (
-            <ServiceSelector 
-              services={services} 
-              selectedService={selectedService}
-              onSelectService={(service: string) => {
-                setSelectedService(service as ServiceType);
-                reset();
-              }}
-            />
-          )}
+        <CardContent>
+          <ServiceSelector 
+            selectedService={selectedService}
+            onChange={setSelectedService}
+            availableServices={availableServices}
+          />
         </CardContent>
       </Card>
 
       {selectedService && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                {isLoadingEndpoints ? (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                      <p className="mt-2 text-neutral-600">Loading endpoints...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <EndpointList
-                    endpoints={endpointsData || []}
-                    selectedEndpoint={selectedEndpoint}
-                    onSelectEndpoint={handleEndpointSelect}
-                    isExecuting={isExecuting}
-                  />
-                )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left column - Endpoint List */}
+          <div className="lg:col-span-1">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Endpoints</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EndpointList 
+                  endpoints={endpoints}
+                  selectedEndpoint={selectedEndpoint}
+                  onSelect={handleEndpointSelect}
+                />
               </CardContent>
             </Card>
+          </div>
 
-            <Card>
-              <CardContent className="p-6">
+          {/* Right column - Endpoint Details and Execution */}
+          <div className="lg:col-span-2">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>{selectedEndpoint ? selectedEndpoint.name : "Endpoint Details"}</CardTitle>
+              </CardHeader>
+              <CardContent>
                 {selectedEndpoint ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-medium">{selectedEndpoint.name}</h3>
-                      <p className="text-sm text-neutral-600">{selectedEndpoint.description}</p>
-                      
-                      <div className="flex items-center mt-2">
-                        <div className="flex-1">
-                          <div className="flex items-center">
-                            <Badge className={cn(
-                              selectedEndpoint.method === "GET" && "bg-green-100 text-green-800",
-                              selectedEndpoint.method === "POST" && "bg-blue-100 text-blue-800",
-                              selectedEndpoint.method === "PUT" && "bg-yellow-100 text-yellow-800",
-                              selectedEndpoint.method === "DELETE" && "bg-red-100 text-red-800"
-                            )}>
-                              {selectedEndpoint.method}
-                            </Badge>
-                            <code className="text-xs bg-neutral-100 px-2 py-1 rounded ml-2">
-                              {selectedEndpoint.endpoint}
-                            </code>
-                          </div>
-                        </div>
-                      </div>
+                  <div className="space-y-6">
+                    <p className="text-sm text-neutral-600">{selectedEndpoint.description}</p>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs font-mono",
+                          selectedEndpoint.method === "GET" && "bg-blue-50 border-blue-200 text-blue-700",
+                          selectedEndpoint.method === "POST" && "bg-green-50 border-green-200 text-green-700",
+                          selectedEndpoint.method === "PUT" && "bg-amber-50 border-amber-200 text-amber-700",
+                          selectedEndpoint.method === "DELETE" && "bg-red-50 border-red-200 text-red-700"
+                        )}
+                      >
+                        {selectedEndpoint.method}
+                      </Badge>
+                      <code className="px-2 py-1 bg-neutral-100 rounded text-xs">{selectedEndpoint.endpoint}</code>
                     </div>
                     
-                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Parameters</div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowCurl(!showCurl)}
+                        className="text-xs"
+                      >
+                        {showCurl ? "Hide CURL" : "Show CURL"}
+                      </Button>
+                    </div>
                     
-                    {/* Parameter Form */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Parameters</h4>
-                        <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => setShowCurl(!showCurl)}>
-                            {showCurl ? "Hide CURL" : "Show CURL"}
-                          </Button>
-                          <Button size="sm" onClick={executeEndpoint} disabled={isExecuting}>
-                            {isExecuting ? "Executing..." : "Execute"}
-                          </Button>
-                        </div>
+                    {showCurl && (
+                      <div className="bg-neutral-900 text-neutral-100 p-3 rounded-md overflow-auto">
+                        <pre className="text-xs">
+                          {`curl -X ${selectedEndpoint.method} "${window.location.origin}${selectedEndpoint.endpoint}"`}
+                        </pre>
                       </div>
-                      
-                      {showCurl && (
-                        <div className="bg-neutral-900 text-white p-3 rounded-md text-xs overflow-x-auto">
-                          <pre className="font-mono">
-                            {`curl -X ${selectedEndpoint.method} "${window.location.origin}${selectedEndpoint.endpoint}"`}
-                          </pre>
-                        </div>
-                      )}
-                      
-                      {selectedEndpoint.params && selectedEndpoint.params.length > 0 ? (
-                        <div className="space-y-3">
-                          {selectedEndpoint.params.map((param: {
-                            name: string;
-                            type: string;
-                            required: boolean;
-                            description: string;
-                          }) => (
-                            <div key={param.name} className="space-y-1">
-                              <label className="text-sm font-medium flex items-center">
-                                {param.name}
-                                {param.required && <span className="text-red-500 ml-1">*</span>}
-                              </label>
-                              <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-neutral-200 rounded-md text-sm"
-                                placeholder={param.description}
-                                value={paramValues[param.name] || ''}
-                                onChange={(e) => setParamValues(prev => ({
-                                  ...prev,
-                                  [param.name]: e.target.value
-                                }))}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 bg-neutral-50 rounded-md">
-                          <p className="text-sm text-neutral-500">
-                            This endpoint does not require any parameters.
-                          </p>
-                        </div>
-                      )}
+                    )}
+                    
+                    {selectedEndpoint.params && selectedEndpoint.params.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedEndpoint.params.map((param: {
+                          name: string;
+                          type: string;
+                          required: boolean;
+                          description: string;
+                        }) => (
+                          <div key={param.name} className="space-y-1">
+                            <label className="text-sm font-medium flex items-center">
+                              {param.name}
+                              {param.required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 border border-neutral-200 rounded-md text-sm"
+                              placeholder={param.description}
+                              value={paramValues[param.name] || ''}
+                              onChange={(e) => setParamValues(prev => ({
+                                ...prev,
+                                [param.name]: e.target.value
+                              }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-neutral-50 rounded-md">
+                        <p className="text-sm text-neutral-500">
+                          This endpoint doesn't require any parameters.
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={reset}>Reset</Button>
+                      <Button
+                        onClick={executeEndpoint}
+                        disabled={isExecuting}
+                      >
+                        {isExecuting ? (
+                          <>
+                            <i className="ri-refresh-line animate-spin mr-1"></i>
+                            Executing...
+                          </>
+                        ) : (
+                          <>Execute</>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[300px] flex items-center justify-center">
-                    <div className="text-center text-neutral-500">
-                      <div className="text-3xl mb-2">
-                        <i className="ri-file-list-line"></i>
-                      </div>
-                      <p>No endpoint selected</p>
-                      <p className="text-sm">Select an endpoint from the list to view details</p>
+                  <div className="flex flex-col items-center justify-center p-8 text-neutral-500 h-[300px]">
+                    <div className="text-3xl mb-2">
+                      <i className="ri-api-line"></i>
                     </div>
+                    <p>Select an endpoint from the list</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
-          
-          {/* Results Panel */}
-          {selectedEndpoint && (
-            <Card>
-              <CardHeader className="pb-0">
-                <CardTitle className="text-lg">Results</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <EndpointResult 
-                  data={resultData} 
-                  isLoading={isExecuting}
-                  view={resultView}
-                  onChangeView={setResultView}
-                />
-              </CardContent>
-            </Card>
-          )}
         </div>
+      )}
+
+      {/* Results Panel */}
+      {selectedEndpoint && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EndpointResult
+              data={resultData}
+              isLoading={isExecuting}
+              view={resultView}
+              onChangeView={setResultView}
+            />
+          </CardContent>
+        </Card>
       )}
     </div>
   );
 }
-

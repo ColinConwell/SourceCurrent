@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface EndpointResultProps {
@@ -89,110 +89,66 @@ export function EndpointResult({ data, isLoading, view, onChangeView }: Endpoint
 
 interface TreeViewProps {
   data: any;
-  depth?: number;
-  path?: string;
+  level?: number;
 }
 
-function TreeView({ data, depth = 0, path = "" }: TreeViewProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  const toggleExpand = (key: string) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
+function TreeView({ data, level = 0 }: TreeViewProps) {
   if (data === null) {
-    return <span className="text-neutral-500">null</span>;
+    return <span className="text-gray-500">null</span>;
   }
 
-  if (typeof data !== "object") {
-    if (typeof data === "string") {
-      return <span className="text-green-600">"{data}"</span>;
-    }
-    if (typeof data === "number") {
-      return <span className="text-blue-600">{data}</span>;
-    }
-    if (typeof data === "boolean") {
-      return <span className="text-purple-600">{data.toString()}</span>;
-    }
-    return <span>{String(data)}</span>;
+  if (data === undefined) {
+    return <span className="text-gray-500">undefined</span>;
+  }
+
+  if (typeof data === "string") {
+    return <span className="text-green-600">"{data}"</span>;
+  }
+
+  if (typeof data === "number" || typeof data === "boolean") {
+    return <span className="text-blue-600">{String(data)}</span>;
   }
 
   if (Array.isArray(data)) {
     if (data.length === 0) {
-      return <span className="text-neutral-500">[]</span>;
+      return <span className="text-gray-500">[]</span>;
     }
 
     return (
-      <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
-        <div
-          className="flex items-center cursor-pointer text-sm hover:bg-neutral-50 -mx-1 px-1 rounded"
-          onClick={() => toggleExpand(path)}
-        >
-          <i
-            className={`ri-arrow-${
-              expanded[path] ? "down" : "right"
-            }-s-line mr-1 text-neutral-600`}
-          ></i>
-          <span className="text-neutral-800">Array[{data.length}]</span>
-        </div>
-        {expanded[path] && (
-          <div className="ml-4 border-l border-neutral-200 pl-2 mt-1">
-            {data.map((item, index) => (
-              <div key={`${path}.${index}`} className="mb-1">
-                <div className="flex">
-                  <span className="text-neutral-500 mr-2">{index}:</span>
-                  <TreeView
-                    data={item}
-                    depth={depth + 1}
-                    path={`${path}.${index}`}
-                  />
-                </div>
-              </div>
-            ))}
+      <div style={{ marginLeft: level > 0 ? 20 : 0 }}>
+        <div className="text-gray-600">[</div>
+        {data.map((item, index) => (
+          <div key={index} className="flex items-start">
+            <div className="text-gray-500 mr-1">{index}:</div>
+            <TreeView data={item} level={level + 1} />
+            {index < data.length - 1 && <div className="text-gray-600">,</div>}
           </div>
-        )}
+        ))}
+        <div className="text-gray-600">]</div>
       </div>
     );
   }
 
-  // Object
-  const keys = Object.keys(data);
-  if (keys.length === 0) {
-    return <span className="text-neutral-500">{"{}"}</span>;
+  if (typeof data === "object") {
+    const keys = Object.keys(data);
+    if (keys.length === 0) {
+      return <span className="text-gray-500">{"{}"}</span>;
+    }
+
+    return (
+      <div style={{ marginLeft: level > 0 ? 20 : 0 }}>
+        <div className="text-gray-600">{"{"}</div>
+        {keys.map((key, index) => (
+          <div key={key} className="flex items-start">
+            <div className="text-red-600 mr-1">"{key}":</div>
+            <TreeView data={data[key]} level={level + 1} />
+            {index < keys.length - 1 && <div className="text-gray-600">,</div>}
+          </div>
+        ))}
+        <div className="text-gray-600">{"}"}</div>
+      </div>
+    );
   }
 
-  return (
-    <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
-      <div
-        className="flex items-center cursor-pointer text-sm hover:bg-neutral-50 -mx-1 px-1 rounded"
-        onClick={() => toggleExpand(path)}
-      >
-        <i
-          className={`ri-arrow-${
-            expanded[path] ? "down" : "right"
-          }-s-line mr-1 text-neutral-600`}
-        ></i>
-        <span className="text-neutral-800">{"Object"}</span>
-      </div>
-      {expanded[path] && (
-        <div className="ml-4 border-l border-neutral-200 pl-2 mt-1">
-          {keys.map((key) => (
-            <div key={`${path}.${key}`} className="mb-1">
-              <div className="flex">
-                <span className="text-neutral-800 font-medium mr-2">{key}:</span>
-                <TreeView
-                  data={data[key]}
-                  depth={depth + 1}
-                  path={`${path}.${key}`}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <span className="text-gray-500">{String(data)}</span>;
 }

@@ -1,43 +1,56 @@
 import React from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+type ServiceType = "slack" | "notion" | "github" | "linear";
+
 interface ServiceSelectorProps {
-  services: string[];
-  selectedService: string | null;
-  onSelectService: (service: string) => void;
+  selectedService: ServiceType | null;
+  onChange: (service: ServiceType) => void;
+  availableServices: Record<string, boolean>;
 }
 
-export function ServiceSelector({ 
-  services, 
-  selectedService, 
-  onSelectService 
-}: ServiceSelectorProps) {
+export function ServiceSelector({ selectedService, onChange, availableServices }: ServiceSelectorProps) {
+  const services = [
+    { id: "slack" as ServiceType, name: "Slack", icon: "ri-slack-line", color: "bg-[#4A154B]" },
+    { id: "notion" as ServiceType, name: "Notion", icon: "ri-notion-fill", color: "bg-black" },
+    { id: "github" as ServiceType, name: "GitHub", icon: "ri-github-fill", color: "bg-[#24292e]" },
+    { id: "linear" as ServiceType, name: "Linear", icon: "ri-line-chart-line", color: "bg-[#5E6AD2]" },
+  ];
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-medium">Select a service</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-        {services.map((service) => (
-          <Card
-            key={service}
-            className={cn(
-              "cursor-pointer transition-all hover:border-primary-500 p-4 flex flex-col items-center justify-center space-y-2",
-              selectedService === service
-                ? "border-2 border-primary-500 shadow-sm"
-                : "border border-neutral-200"
-            )}
-            onClick={() => onSelectService(service)}
-          >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-primary-100">
-              {service === "slack" && <i className="ri-slack-line text-2xl text-primary-600"></i>}
-              {service === "notion" && <i className="ri-file-list-line text-2xl text-primary-600"></i>}
-              {service === "github" && <i className="ri-github-fill text-2xl text-primary-600"></i>}
-              {service === "linear" && <i className="ri-line-chart-line text-2xl text-primary-600"></i>}
+    <Card>
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {services.map((service) => (
+            <div
+              key={service.id}
+              className={cn(
+                "relative flex flex-col items-center justify-center p-4 rounded-md cursor-pointer transition-all",
+                "hover:bg-neutral-100 border-2 border-transparent",
+                selectedService === service.id && "border-primary/60 bg-primary/5",
+                !availableServices[service.id] && "opacity-60 cursor-not-allowed"
+              )}
+              onClick={() => {
+                if (availableServices[service.id]) {
+                  onChange(service.id);
+                }
+              }}
+            >
+              <div className={cn("p-3 rounded-full mb-2 text-white", service.color)}>
+                <i className={cn(service.icon, "text-xl")}></i>
+              </div>
+              <span className="text-sm font-medium">{service.name}</span>
+              
+              {!availableServices[service.id] && (
+                <div className="absolute top-1 right-1">
+                  <i className="ri-lock-line text-neutral-400"></i>
+                </div>
+              )}
             </div>
-            <span className="text-sm font-medium capitalize">{service}</span>
-          </Card>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

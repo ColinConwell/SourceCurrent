@@ -168,22 +168,22 @@ export function DataPreview() {
             </div>
           ) : (
             <div>
-              <TabsContent value="tree" className="m-0">
+              {activeTab === "tree" && (
                 <div className="p-4">
                   <JsonTreeViewer 
                     data={sourceData && typeof sourceData === 'object' && 'data' in sourceData ? sourceData.data : {}} 
                     maxInitialDepth={2} 
                   />
                 </div>
-              </TabsContent>
+              )}
               
-              <TabsContent value="raw" className="m-0">
+              {activeTab === "raw" && (
                 <div className="p-4 overflow-auto max-h-[500px]">
                   <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
                     {JSON.stringify(sourceData && typeof sourceData === 'object' && 'data' in sourceData ? sourceData.data : {}, null, 2)}
                   </pre>
                 </div>
-              </TabsContent>
+              )}
             </div>
           )}
         </div>

@@ -1,37 +1,23 @@
 import React from "react";
-import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
   title: string;
   description?: string;
   icon?: string;
-  className?: string;
-  actions?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-export function PageHeader({
-  title,
-  description,
-  icon,
-  className,
-  actions,
-}: PageHeaderProps) {
+export function PageHeader({ title, description, icon, children }: PageHeaderProps) {
   return (
-    <div className={cn("flex items-start justify-between mb-6", className)}>
-      <div className="flex items-center space-x-3">
-        {icon && (
-          <div className="w-10 h-10 rounded-md bg-primary-100 flex items-center justify-center">
-            <i className={cn(icon, "text-xl text-primary-600")}></i>
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">{title}</h1>
-          {description && (
-            <p className="mt-1 text-neutral-500 max-w-2xl">{description}</p>
-          )}
+    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+      <div className="mb-4 md:mb-0">
+        <div className="flex items-center mb-1">
+          {icon && <i className={`${icon} text-xl mr-2 text-primary`}></i>}
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
+        {description && <p className="text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex items-center space-x-2">{actions}</div>}
+      {children && <div>{children}</div>}
     </div>
   );
 }

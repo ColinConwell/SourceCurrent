@@ -1,9 +1,6 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
 
 export interface EndpointData {
   id: string;
@@ -11,110 +8,63 @@ export interface EndpointData {
   description: string;
   endpoint: string;
   method: "GET" | "POST" | "PUT" | "DELETE";
-  category: string;
   params?: {
     name: string;
     type: string;
-    required: boolean;
     description: string;
+    required: boolean;
   }[];
 }
 
 interface EndpointListProps {
   endpoints: EndpointData[];
-  onSelectEndpoint: (endpoint: EndpointData) => void;
   selectedEndpoint: EndpointData | null;
-  isExecuting: boolean;
+  onSelect: (endpoint: EndpointData) => void;
 }
 
-export function EndpointList({
-  endpoints,
-  onSelectEndpoint,
-  selectedEndpoint,
-  isExecuting,
-}: EndpointListProps) {
-  // Group endpoints by category
-  const groupedEndpoints = endpoints.reduce<Record<string, EndpointData[]>>(
-    (acc, endpoint) => {
-      if (!acc[endpoint.category]) {
-        acc[endpoint.category] = [];
-      }
-      acc[endpoint.category].push(endpoint);
-      return acc;
-    },
-    {}
-  );
+export function EndpointList({ endpoints, selectedEndpoint, onSelect }: EndpointListProps) {
+  if (!endpoints || endpoints.length === 0) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center text-neutral-500">
+        <p>No endpoints available for this service</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Available Endpoints</h3>
-        {selectedEndpoint && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onSelectEndpoint(null as unknown as EndpointData)}
+    <ScrollArea className="h-[400px] pr-3">
+      <div className="space-y-2">
+        {endpoints.map((endpoint) => (
+          <div
+            key={endpoint.id}
+            className={`p-3 rounded-md border cursor-pointer hover:border-neutral-300 ${
+              selectedEndpoint?.id === endpoint.id ? "border-primary/60 bg-primary/5" : "border-neutral-200"
+            }`}
+            onClick={() => onSelect(endpoint)}
           >
-            Clear Selection
-          </Button>
-        )}
-      </div>
-
-      <Accordion type="multiple" className="space-y-2">
-        {Object.entries(groupedEndpoints).map(([category, categoryEndpoints]) => (
-          <AccordionItem key={category} value={category} className="border rounded-md overflow-hidden">
-            <AccordionTrigger className="px-4 py-2 hover:bg-neutral-50">
-              <span className="text-sm font-semibold">{category}</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="divide-y">
-                {categoryEndpoints.map((endpoint) => (
-                  <Card
-                    key={endpoint.id}
-                    className={cn(
-                      "border-0 shadow-none cursor-pointer transition-all hover:bg-neutral-50",
-                      selectedEndpoint?.id === endpoint.id && "bg-neutral-100"
-                    )}
-                    onClick={() => onSelectEndpoint(endpoint)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <Badge
-                          className={cn(
-                            endpoint.method === "GET" && "bg-green-100 text-green-800 hover:bg-green-100",
-                            endpoint.method === "POST" && "bg-blue-100 text-blue-800 hover:bg-blue-100",
-                            endpoint.method === "PUT" && "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
-                            endpoint.method === "DELETE" && "bg-red-100 text-red-800 hover:bg-red-100"
-                          )}
-                        >
-                          {endpoint.method}
-                        </Badge>
-                        <h4 className="text-sm font-medium">{endpoint.name}</h4>
-                      </div>
-                      <p className="text-xs text-neutral-600 line-clamp-2">{endpoint.description}</p>
-                      <div className="mt-1">
-                        <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded">{endpoint.endpoint}</code>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            <div className="flex items-start justify-between mb-1">
+              <div className="flex items-center">
+                <span className="text-sm font-medium mr-2">{endpoint.name}</span>
+                <Badge
+                  variant="outline"
+                  className={`text-xs 
+                    ${endpoint.method === "GET" ? "bg-blue-50 border-blue-200 text-blue-700" : ""}
+                    ${endpoint.method === "POST" ? "bg-green-50 border-green-200 text-green-700" : ""}
+                    ${endpoint.method === "PUT" ? "bg-amber-50 border-amber-200 text-amber-700" : ""}
+                    ${endpoint.method === "DELETE" ? "bg-red-50 border-red-200 text-red-700" : ""}
+                  `}
+                >
+                  {endpoint.method}
+                </Badge>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+            </div>
+            <p className="text-xs text-neutral-500 line-clamp-2 mb-1">{endpoint.description}</p>
+            <div className="text-xs text-neutral-600 rounded bg-neutral-100 px-1 py-0.5 font-mono">
+              {endpoint.endpoint}
+            </div>
+          </div>
         ))}
-      </Accordion>
-
-      {selectedEndpoint && (
-        <div className="flex justify-end">
-          <Button 
-            disabled={isExecuting} 
-            size="sm"
-            onClick={() => onSelectEndpoint(selectedEndpoint)}
-          >
-            {isExecuting ? "Executing..." : "Execute Endpoint"}
-          </Button>
-        </div>
-      )}
-    </div>
+      </div>
+    </ScrollArea>
   );
 }

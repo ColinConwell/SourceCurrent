@@ -3,7 +3,7 @@ import AppLayout from "@/components/layout/app-layout";
 import { PageHeader } from "@/components/ui/page-header";
 import { EndpointExplorer } from "@/components/endpoints/endpoint-explorer";
 
-export default function EndpointsPage() {
+export default function Endpoints() {
   return (
     <AppLayout>
       <div className="space-y-6">
