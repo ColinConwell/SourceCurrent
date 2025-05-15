@@ -94,7 +94,8 @@ interface TreeViewProps {
 }
 
 function TreeView({ data, level = 0, expandedByDefault = true }: TreeViewProps) {
-  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault && level < 3);
+  // For top levels or array elements, expand by default, but collapse deeper nesting
+  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault && level < (level === 0 ? 4 : 2));
   
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -163,18 +164,18 @@ function TreeView({ data, level = 0, expandedByDefault = true }: TreeViewProps) 
         </div>
         <div className="ml-3">
           {keys.map((key, index) => (
-            <div key={isArray ? `${index}` : key.toString()} className="flex flex-wrap items-baseline">
-              <span className={`${isArray ? "text-gray-500" : "text-red-600"} font-medium`}>
-                {isArray ? `${key}: ` : `"${key}": `}
+            <div key={isArray ? `${index}` : key.toString()} className="flex flex-wrap items-start mb-1">
+              <span className={`${isArray ? "text-gray-500" : "text-red-600"} font-medium ${isArray ? 'w-8 inline-block' : ''}`}>
+                {isArray ? `${key}:` : `"${key}":`}
               </span>
-              <span className="inline-flex items-baseline">
+              <span className="inline-flex items-baseline flex-1">
                 <TreeView 
                   data={data[key]} 
                   level={level + 1} 
                   expandedByDefault={expandedByDefault && level < 2}
                 />
+                {index < keys.length - 1 && <span className="text-gray-600 ml-1">,</span>}
               </span>
-              {index < keys.length - 1 && <span className="text-gray-600">,</span>}
             </div>
           ))}
         </div>
