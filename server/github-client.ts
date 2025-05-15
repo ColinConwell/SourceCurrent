@@ -17,7 +17,24 @@ const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:5000/api/auth
 // GitHub App configuration
 const GITHUB_APP_ID = process.env.GITHUB_APP_ID;
 const GITHUB_INSTALLATION_ID = process.env.GITHUB_INSTALLATION_ID;
-const GITHUB_PRIVATE_KEY = process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, '\n');
+// Fix private key formatting - this handles both escaped newlines (\n) and actual line breaks
+const GITHUB_PRIVATE_KEY = (() => {
+  if (!process.env.GITHUB_PRIVATE_KEY) return undefined;
+  
+  let privateKey = process.env.GITHUB_PRIVATE_KEY;
+  
+  // Replace literal \n with actual newlines
+  privateKey = privateKey.replace(/\\n/g, '\n');
+  
+  // Make sure the key is in the expected PEM format
+  if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    if (!privateKey.startsWith('-----')) {
+      privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`;
+    }
+  }
+  
+  return privateKey;
+})();
 
 /**
  * GitHub API client for OAuth flow and API interactions
@@ -37,19 +54,41 @@ export class GitHubClient {
    * Create a GitHub App JWT for authentication
    */
   static createAppJwt(): string {
-    if (!GITHUB_APP_ID || !GITHUB_PRIVATE_KEY) {
-      throw new Error('GitHub App credentials are not configured');
+    if (!GITHUB_APP_ID) {
+      throw new Error('GitHub App ID is not configured');
     }
     
-    // Create a JWT that expires in 10 minutes
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iat: now,
-      exp: now + 10 * 60,
-      iss: GITHUB_APP_ID
-    };
+    if (!GITHUB_PRIVATE_KEY) {
+      throw new Error('GitHub App private key is not configured');
+    }
     
-    return jwt.sign(payload, GITHUB_PRIVATE_KEY, { algorithm: 'RS256' });
+    try {
+      // Create a JWT that expires in 10 minutes
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        iat: now,
+        exp: now + 10 * 60,
+        iss: GITHUB_APP_ID
+      };
+      
+      // Log debugging info without exposing the full key
+      const keyInfo = {
+        length: GITHUB_PRIVATE_KEY.length,
+        starts_with: GITHUB_PRIVATE_KEY.substring(0, 27), // Just the header
+        has_begin_marker: GITHUB_PRIVATE_KEY.includes('BEGIN'),
+        has_end_marker: GITHUB_PRIVATE_KEY.includes('END'),
+        has_newlines: GITHUB_PRIVATE_KEY.includes('\n')
+      };
+      console.log('Debug - Private key info:', keyInfo);
+      
+      return jwt.sign(payload, GITHUB_PRIVATE_KEY, { algorithm: 'RS256' });
+    } catch (error) {
+      console.error('Error creating GitHub App JWT:', error);
+      if (error instanceof Error && error.message.includes('secretOrPrivateKey must be an asymmetric key')) {
+        throw new Error('Invalid private key format. Key must be a valid RSA private key in PEM format.');
+      }
+      throw error;
+    }
   }
   
   /**
