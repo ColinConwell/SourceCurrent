@@ -1,52 +1,38 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EndpointList } from "./endpoint-list";
+import { useQuery } from "@tanstack/react-query";
+import { EndpointList, EndpointData } from "./endpoint-list";
 import { EndpointResult } from "./endpoint-result";
 import { ServiceSelector } from "./service-selector";
+import axios from "axios";
 
-// Types for our endpoint explorer
 type ServiceType = "slack" | "notion" | "github" | "linear";
-type EndpointData = {
-  id: string;
-  name: string;
-  description: string;
-  endpoint: string;
-  method: "GET" | "POST" | "PUT" | "DELETE";
-  category: string;
-  params?: {
-    name: string;
-    type: string;
-    required: boolean;
-    description: string;
-  }[];
-};
 
 export function EndpointExplorer() {
-  // State for the selected service and endpoint
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointData | null>(null);
-  const [endpointResult, setEndpointResult] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"treeview" | "json">("treeview");
-  
-  // Fetch available services
-  const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ['/api/environment/services'],
-    select: (response: any) => response.data.availableServices
+  const [resultView, setResultView] = useState<"treeview" | "json">("treeview");
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [resultData, setResultData] = useState<any>(null);
+
+  // Get services that are available in the environment
+  const { data: servicesData } = useQuery({
+    queryKey: ["/api/environment/services"],
   });
   
-  // Fetch endpoints for the selected service
-  const { data: endpoints, isLoading: isLoadingEndpoints } = useQuery({
-    queryKey: ['/api/endpoints', selectedService],
+  const services = servicesData?.data?.availableServices
+    ? Object.keys(servicesData.data.availableServices).filter(
+        (service) => servicesData.data.availableServices[service]
+      )
+    : [];
+
+  // Get endpoints for the selected service
+  const { data: endpointsData, isLoading: isLoadingEndpoints } = useQuery({
+    queryKey: ["/api/endpoints", selectedService],
     enabled: !!selectedService,
-    // Mock this until we have a real endpoint
-    queryFn: async () => {
-      // This is temporary until we implement the backend endpoint
-      // We'll just return hardcoded endpoints based on the service
+    select: (data) => {
       return getEndpointsForService(selectedService as ServiceType);
     }
   });
@@ -55,50 +41,61 @@ export function EndpointExplorer() {
   const executeEndpoint = async () => {
     if (!selectedEndpoint) return;
     
-    setIsLoading(true);
+    setIsExecuting(true);
+    setResultData(null);
+    
     try {
-      // Build the URL
-      const baseUrl = window.location.origin;
-      const url = `${baseUrl}${selectedEndpoint.endpoint}`;
-      
-      // Execute the API call
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      setEndpointResult(data);
+      const response = await axios.get(selectedEndpoint.endpoint);
+      setResultData(response.data);
     } catch (error) {
       console.error("Error executing endpoint:", error);
-      setEndpointResult({ error: "Failed to execute endpoint. See console for details." });
+      setResultData({ error: "Failed to execute endpoint" });
     } finally {
-      setIsLoading(false);
+      setIsExecuting(false);
     }
   };
   
-  // Reset the UI state
+  // Reset the form
   const reset = () => {
     setSelectedEndpoint(null);
-    setEndpointResult(null);
+    setResultData(null);
   };
-  
+
+  const handleEndpointSelect = (endpoint: EndpointData) => {
+    setSelectedEndpoint(endpoint);
+    setResultData(null);
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Service Selection */}
+    <div className="space-y-6">
       <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-medium mb-4">Select a Service</h2>
-          
-          {isLoadingServices ? (
-            <div className="grid grid-cols-4 gap-4">
-              <Skeleton className="h-20 w-full rounded-md" />
-              <Skeleton className="h-20 w-full rounded-md" />
-              <Skeleton className="h-20 w-full rounded-md" />
-              <Skeleton className="h-20 w-full rounded-md" />
+        <CardHeader className="pb-3">
+          <CardTitle>API Endpoint Explorer</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {selectedService ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-100">
+                  {selectedService === "slack" && <i className="ri-slack-line text-xl text-primary-600"></i>}
+                  {selectedService === "notion" && <i className="ri-file-list-line text-xl text-primary-600"></i>}
+                  {selectedService === "github" && <i className="ri-github-fill text-xl text-primary-600"></i>}
+                  {selectedService === "linear" && <i className="ri-line-chart-line text-xl text-primary-600"></i>}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold capitalize">{selectedService}</h3>
+                  <p className="text-sm text-neutral-500">API Endpoints</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setSelectedService(null)}>
+                Change Service
+              </Button>
             </div>
           ) : (
             <ServiceSelector 
               services={services} 
               selectedService={selectedService}
-              onSelectService={(service) => {
+              onSelectService={(service: string) => {
                 setSelectedService(service as ServiceType);
                 reset();
               }}
@@ -106,95 +103,69 @@ export function EndpointExplorer() {
           )}
         </CardContent>
       </Card>
-      
-      {/* Endpoint Selection */}
+
       {selectedService && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-medium">Available Endpoints</h2>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setSelectedService(null)}
-              >
-                Change Service
-              </Button>
-            </div>
-            
-            {isLoadingEndpoints ? (
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : (
-              <EndpointList 
-                endpoints={endpoints || []} 
-                selectedEndpoint={selectedEndpoint}
-                onSelectEndpoint={setSelectedEndpoint}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Endpoint Result */}
-      {selectedEndpoint && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-medium">{selectedEndpoint.name}</h2>
-                <p className="text-sm text-neutral-500">{selectedEndpoint.description}</p>
-              </div>
-              <div className="space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={reset}
-                >
-                  Reset
-                </Button>
-                <Button 
-                  onClick={executeEndpoint}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Executing..." : "Execute"}
-                </Button>
-              </div>
-            </div>
-            
-            <div className="bg-neutral-50 p-4 rounded-md mb-6">
-              <h3 className="text-sm font-medium text-neutral-700 mb-2">API Request</h3>
-              <div className="font-mono text-sm bg-neutral-100 p-3 rounded-md overflow-x-auto">
-                <code>
-                  {selectedEndpoint.method} {window.location.origin}{selectedEndpoint.endpoint}
-                </code>
-              </div>
-            </div>
-            
-            {endpointResult && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Response</h3>
-                  <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "treeview" | "json")}>
-                    <TabsList>
-                      <TabsTrigger value="treeview">Tree View</TabsTrigger>
-                      <TabsTrigger value="json">Raw JSON</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              {isLoadingEndpoints ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                    <p className="mt-2 text-neutral-600">Loading endpoints...</p>
+                  </div>
                 </div>
-                
-                <EndpointResult 
-                  data={endpointResult} 
-                  isLoading={isLoading}
-                  view={activeTab} 
+              ) : (
+                <EndpointList
+                  endpoints={endpointsData || []}
+                  selectedEndpoint={selectedEndpoint}
+                  onSelectEndpoint={handleEndpointSelect}
+                  isExecuting={isExecuting}
                 />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              {selectedEndpoint ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium">{selectedEndpoint.name}</h3>
+                    <p className="text-sm text-neutral-600">{selectedEndpoint.description}</p>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <code className="text-xs bg-neutral-100 px-2 py-1 rounded">
+                        {selectedEndpoint.endpoint}
+                      </code>
+                      <Button size="sm" onClick={executeEndpoint} disabled={isExecuting}>
+                        {isExecuting ? "Executing..." : "Execute"}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <EndpointResult 
+                    data={resultData} 
+                    isLoading={isExecuting}
+                    view={resultView}
+                    onChangeView={setResultView}
+                  />
+                </div>
+              ) : (
+                <div className="h-[500px] flex items-center justify-center">
+                  <div className="text-center text-neutral-500">
+                    <div className="text-3xl mb-2">
+                      <i className="ri-file-list-line"></i>
+                    </div>
+                    <p>No endpoint selected</p>
+                    <p className="text-sm">Select an endpoint from the list to view details</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
@@ -202,90 +173,67 @@ export function EndpointExplorer() {
 
 // Temporary function to get endpoints for a service
 // This will be replaced with an actual API call
-function getEndpointsForService(service: ServiceType): EndpointData[] {
+function getEndpointsForService(service: string): EndpointData[] {
+  const typedService = service as ServiceType;
   switch (service) {
     case "slack":
       return [
         {
           id: "slack-messages",
-          name: "Get Channel Messages",
-          description: "Retrieve recent messages from a Slack channel",
-          method: "GET",
+          name: "Channel Messages",
+          description: "Get recent messages from a Slack channel",
           endpoint: "/api/slack/messages",
-          category: "Messages"
-        },
-        {
-          id: "slack-channels",
-          name: "List Channels",
-          description: "Get a list of all channels in the workspace",
           method: "GET",
-          endpoint: "/api/slack/channels",
-          category: "Channels"
+          category: "Messages",
         },
-        {
-          id: "slack-users",
-          name: "List Users",
-          description: "Get a list of all users in the workspace",
-          method: "GET",
-          endpoint: "/api/slack/users",
-          category: "Users"
-        }
       ];
     case "notion":
       return [
         {
-          id: "notion-databases",
-          name: "List Databases",
-          description: "Get a list of databases in the Notion workspace",
-          method: "GET",
-          endpoint: "/api/notion/databases",
-          category: "Databases"
-        },
-        {
           id: "notion-tasks",
-          name: "Get Tasks",
-          description: "Retrieve tasks from the Notion tasks database",
-          method: "GET",
+          name: "Tasks List",
+          description: "Get tasks from a Notion database",
           endpoint: "/api/notion/tasks",
-          category: "Tasks"
-        }
+          method: "GET",
+          category: "Databases",
+        },
       ];
     case "github":
       return [
         {
           id: "github-repos",
-          name: "List Repositories",
+          name: "Repositories",
           description: "Get a list of GitHub repositories",
-          method: "GET",
           endpoint: "/api/github/repositories",
-          category: "Repositories"
+          method: "GET",
+          category: "Repositories",
         },
         {
-          id: "github-user",
-          name: "User Info",
-          description: "Get the GitHub user information",
+          id: "github-repo-details",
+          name: "Repository Details",
+          description: "Get details about a specific GitHub repository",
+          endpoint: "/api/github/repositories/facebook/react",
           method: "GET",
-          endpoint: "/api/github/user",
-          category: "User"
-        }
+          category: "Repositories",
+        },
       ];
     case "linear":
       return [
         {
           id: "linear-teams",
-          name: "List Teams",
-          description: "Get a list of teams in the Linear workspace",
-          method: "GET",
+          name: "Teams",
+          description: "Get a list of Linear teams",
           endpoint: "/api/linear/teams",
-          category: "Teams"
+          method: "GET",
+          category: "Teams",
         },
         {
           id: "linear-workflow-states",
           name: "Workflow States",
-          description: "Get a list of workflow states",
-          method: "GET",
+          description: "Get workflow states from Linear",
           endpoint: "/api/linear/workflow-states",
-          category: "Workflow"
+          method: "GET",
+          category: "Workflows",
         }
       ];
     default:

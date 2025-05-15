@@ -10,6 +10,7 @@ export default function Sidebar({ className }: SidebarProps) {
   
   const menuItems = [
     { label: "Dashboard", icon: "ri-dashboard-line", path: "/" },
+    { label: "Endpoints", icon: "ri-api-line", path: "/endpoints" },
     { label: "Configurations", icon: "ri-settings-3-line", path: "/config" },
     { label: "Activity Log", icon: "ri-history-line", path: "/activity" },
     { label: "Help & Docs", icon: "ri-information-line", path: "/help" },
