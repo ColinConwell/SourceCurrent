@@ -7,12 +7,25 @@ import { ServiceMetadataViewer } from "@/components/data-display/service-metadat
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
+interface Connection {
+  id: number;
+  name: string;
+  serviceType: string;
+  [key: string]: any;
+}
+
+interface DataSource {
+  sourceId: string;
+  label: string;
+  [key: string]: any;
+}
+
 export function IntegrationDataExplorer() {
   const [selectedTab, setSelectedTab] = useState("metadata");
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
   
-  const { data: connectionsResponse, isLoading: isLoadingConnections } = useQuery({
+  const { data: connectionsResponse, isLoading: isLoadingConnections } = useQuery<Connection[]>({
     queryKey: ["/api/connections"],
   });
   
@@ -25,14 +38,14 @@ export function IntegrationDataExplorer() {
     }
   }, [connections, selectedService]);
   
-  const { data: dataSources, isLoading: isLoadingDataSources } = useQuery({
+  const { data: dataSources, isLoading: isLoadingDataSources } = useQuery<DataSource[]>({
     queryKey: ["/api/connections", selectedService, "data-sources"],
     enabled: !!selectedService,
   });
   
   // Auto-select first data source if none selected and data sources are loaded
   React.useEffect(() => {
-    if (dataSources?.length > 0 && !selectedDataSource) {
+    if (dataSources && dataSources.length > 0 && !selectedDataSource) {
       setSelectedDataSource(dataSources[0].sourceId);
     }
   }, [dataSources, selectedDataSource]);

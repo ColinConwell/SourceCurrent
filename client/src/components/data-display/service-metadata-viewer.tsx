@@ -7,8 +7,17 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
+interface MetadataResponse {
+  success: boolean;
+  data: {
+    slack?: any;
+    notion?: any;
+    [key: string]: any;
+  };
+}
+
 export function ServiceMetadataViewer() {
-  const { data: metadataResponse, isLoading } = useQuery({
+  const { data: metadataResponse, isLoading } = useQuery<MetadataResponse>({
     queryKey: ["/api/metadata/services"],
   });
 
@@ -30,8 +39,8 @@ export function ServiceMetadataViewer() {
     );
   }
   
-  const hasSlack = metadata.slack && metadata.slack.status !== "error";
-  const hasNotion = metadata.notion && metadata.notion.status !== "error";
+  const hasSlack = metadata && 'slack' in metadata && metadata.slack && metadata.slack.status !== "error";
+  const hasNotion = metadata && 'notion' in metadata && metadata.notion && metadata.notion.status !== "error";
   
   return (
     <Card>
@@ -109,7 +118,7 @@ function SlackMetadata({ metadata }: SlackMetadataProps) {
           </div>
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground">Status</span>
-            <Badge variant={channel.isArchived ? "destructive" : "success"} className="w-fit mt-0.5">
+            <Badge variant={channel.isArchived ? "destructive" : "default"} className="w-fit mt-0.5">
               {channel.isArchived ? "Archived" : "Active"}
             </Badge>
           </div>
