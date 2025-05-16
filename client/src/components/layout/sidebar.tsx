@@ -93,18 +93,26 @@ export default function Sidebar({ className }: SidebarProps) {
             </div>
             
             {/* Development Mode Toggle */}
-            <div className="flex items-center justify-between mt-4 px-1">
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="dev-mode" 
-                  checked={devMode}
-                  onCheckedChange={handleToggleDevMode}
-                />
-                <Label htmlFor="dev-mode" className="text-xs font-medium text-neutral-600 cursor-pointer">
+            <div className="flex flex-col mt-4 bg-neutral-50 p-3 rounded-lg border border-neutral-200">
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="dev-mode" className="text-sm font-medium text-neutral-700 cursor-pointer">
                   Development Mode
                 </Label>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${devMode ? 'text-green-600 font-semibold' : 'text-neutral-500'}`}>
+                    {devMode ? 'Active' : 'Inactive'}
+                  </span>
+                  <Switch 
+                    id="dev-mode" 
+                    checked={devMode}
+                    onCheckedChange={handleToggleDevMode}
+                    className="data-[state=checked]:bg-green-600"
+                  />
+                </div>
               </div>
-              {devMode && <span className="text-xs text-green-600">Active</span>}
+              <p className="text-xs text-neutral-500">
+                Enable advanced features for development and testing
+              </p>
             </div>
           </div>
         </div>
