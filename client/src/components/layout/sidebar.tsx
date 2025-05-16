@@ -1,5 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface SidebarProps {
   className?: string;
@@ -7,8 +10,27 @@ interface SidebarProps {
 
 export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
+  const [devMode, setDevMode] = useState(false);
+  
+  // Load dev mode from localStorage on mount
+  useEffect(() => {
+    const savedDevMode = localStorage.getItem('developmentMode');
+    if (savedDevMode) {
+      setDevMode(savedDevMode === 'true');
+    }
+  }, []);
+  
+  // Save dev mode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('developmentMode', devMode.toString());
+  }, [devMode]);
+  
+  const handleToggleDevMode = () => {
+    setDevMode(prev => !prev);
+  };
 
-  const menuItems = [
+  // Create a dynamic menu items array based on development mode
+  const baseMenuItems = [
     { label: "Dashboard", icon: "ri-dashboard-line", path: "/" },
     { label: "Endpoints", icon: "ri-api-line", path: "/endpoints" },
     { label: "Integrations", icon: "ri-link-m", path: "/integrations" },
@@ -16,6 +38,13 @@ export default function Sidebar({ className }: SidebarProps) {
     { label: "Activity Log", icon: "ri-history-line", path: "/activity" },
     { label: "Help & Docs", icon: "ri-information-line", path: "/help" },
   ];
+  
+  // Add Development page item if in dev mode
+  const devMenuItem = { label: "Development", icon: "ri-code-box-line", path: "/dev" };
+  
+  const menuItems = devMode 
+    ? [...baseMenuItems, devMenuItem] 
+    : baseMenuItems;
 
   return (
     <div className={cn("hidden md:flex md:flex-shrink-0", className)}>
