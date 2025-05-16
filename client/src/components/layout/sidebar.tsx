@@ -39,12 +39,8 @@ export default function Sidebar({ className }: SidebarProps) {
     { label: "Help & Docs", icon: "ri-information-line", path: "/help" },
   ];
   
-  // Add Development page item if in dev mode
-  const devMenuItem = { label: "Development", icon: "ri-code-box-line", path: "/dev" };
-  
-  const menuItems = devMode 
-    ? [...baseMenuItems, devMenuItem] 
-    : baseMenuItems;
+  // Use just the base menu items for now
+  const menuItems = baseMenuItems;
 
   return (
     <div className={cn("hidden md:flex md:flex-shrink-0", className)}>
@@ -90,6 +86,21 @@ export default function Sidebar({ className }: SidebarProps) {
                   Administrator
                 </p>
               </div>
+            </div>
+            
+            {/* Development Mode Toggle */}
+            <div className="flex items-center justify-between mt-4 px-1">
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="dev-mode" 
+                  checked={devMode}
+                  onCheckedChange={handleToggleDevMode}
+                />
+                <Label htmlFor="dev-mode" className="text-xs font-medium text-neutral-600 cursor-pointer">
+                  Development Mode
+                </Label>
+              </div>
+              {devMode && <span className="text-xs text-green-600">Active</span>}
             </div>
           </div>
         </div>
