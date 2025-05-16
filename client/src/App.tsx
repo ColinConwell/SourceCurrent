@@ -11,6 +11,7 @@ import Integrations from "@/pages/integrations";
 import Configurations from "@/pages/configurations";
 import Activity from "@/pages/activity";
 import Help from "@/pages/help";
+import Development from "@/pages/dev";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/help" component={Help} />
       <Route path="/endpoints" component={Endpoints} />
       <Route path="/integrations" component={Integrations} />
+      <Route path="/dev" component={Development} />
       <Route path="/auth/:service/callback" component={AuthCallback} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />

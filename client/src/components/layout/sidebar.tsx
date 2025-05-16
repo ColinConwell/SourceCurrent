@@ -39,8 +39,12 @@ export default function Sidebar({ className }: SidebarProps) {
     { label: "Help & Docs", icon: "ri-information-line", path: "/help" },
   ];
   
-  // Use just the base menu items for now
-  const menuItems = baseMenuItems;
+  // Add Development page item if dev mode is enabled
+  const devMenuItem = { label: "Development", icon: "ri-code-box-line", path: "/dev" };
+  
+  const menuItems = devMode 
+    ? [...baseMenuItems, devMenuItem] 
+    : baseMenuItems;
 
   return (
     <div className={cn("hidden md:flex md:flex-shrink-0", className)}>
