@@ -15,7 +15,6 @@ import Help from "@/pages/help";
 import Development from "@/pages/dev";
 import Sidebar from "@/components/layout/sidebar";
 import Navbar from "@/components/layout/navbar";
-import "remixicon/fonts/remixicon.css";
 
 function AppLayout() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);

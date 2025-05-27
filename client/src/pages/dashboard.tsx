@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import AppLayout from "@/components/layout/app-layout";
 import { OverviewStats } from "@/components/dashboard/overview-stats";
 import { ConnectionsSection } from "@/components/connections/connections-section";
 import { DataPreview } from "@/components/dashboard/data-preview";
@@ -37,15 +36,13 @@ export default function Dashboard() {
   }, [connections, toast]);
   
   return (
-    <AppLayout>
+    <div className="space-y-6">
       <AutoConnectionsBanner />
-      <div className="space-y-6 mb-8">
-        <OverviewStats />
-        <ConnectionsSection />
-        <DataPreview />
-        <PipelineSection />
-        <RecentActivity />
-      </div>
-    </AppLayout>
+      <OverviewStats />
+      <ConnectionsSection />
+      <DataPreview />
+      <PipelineSection />
+      <RecentActivity />
+    </div>
   );
 }
