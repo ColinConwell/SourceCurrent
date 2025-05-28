@@ -48,9 +48,9 @@ export default function Sidebar({ className, isOpen, onClose }: SidebarProps) {
     ? [...baseMenuItems, devMenuItem] 
     : baseMenuItems;
 
-  // Handle clicking a menu item on mobile - close sidebar
+  // Handle clicking a menu item on mobile/tablet - close sidebar
   const handleMenuItemClick = () => {
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 1024) {
       onClose();
     }
   };
@@ -60,7 +60,7 @@ export default function Sidebar({ className, isOpen, onClose }: SidebarProps) {
       {/* Mobile overlay */}
       {isOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={onClose}
         ></div>
       )}
@@ -68,8 +68,8 @@ export default function Sidebar({ className, isOpen, onClose }: SidebarProps) {
       {/* Sidebar */}
       <div 
         className={cn(
-          "fixed md:static inset-y-0 left-0 z-50 flex-shrink-0 w-64 bg-white border-r border-neutral-200 transform transition-transform duration-200 ease-in-out",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          "fixed lg:static inset-y-0 left-0 z-50 flex-shrink-0 w-64 bg-white border-r border-neutral-200 transform transition-transform duration-200 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           className
         )}
       >
@@ -84,9 +84,9 @@ export default function Sidebar({ className, isOpen, onClose }: SidebarProps) {
               </h1>
             </div>
             
-            {/* Close button - only on mobile */}
+            {/* Close button - on mobile and tablet */}
             <button 
-              className="md:hidden ml-auto text-neutral-500 hover:text-neutral-700"
+              className="lg:hidden ml-auto text-neutral-500 hover:text-neutral-700"
               onClick={onClose}
             >
               <i className="ri-close-line text-2xl"></i>

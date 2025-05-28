@@ -9,20 +9,20 @@ interface NavbarProps {
 export default function Navbar({ onMenuToggle, className, pageTitle = "Dashboard" }: NavbarProps) {
   return (
     <nav className={cn(
-      "bg-white border-b border-neutral-200 h-16 px-4 flex items-center justify-between md:justify-end",
+      "bg-white border-b border-neutral-200 h-16 px-4 flex items-center justify-between lg:justify-end",
       className
     )}>
-      {/* Menu toggle button - only visible on mobile */}
+      {/* Menu toggle button - visible on mobile and tablet */}
       <button 
-        className="flex md:hidden items-center justify-center text-neutral-700 hover:text-primary-500 focus:outline-none"
+        className="flex lg:hidden items-center justify-center text-neutral-700 hover:text-primary-500 focus:outline-none"
         onClick={onMenuToggle}
         aria-label="Toggle menu"
       >
         <i className="ri-menu-line text-2xl"></i>
       </button>
       
-      {/* Page title - only visible on mobile */}
-      <div className="md:hidden font-medium text-lg">{pageTitle}</div>
+      {/* Page title - visible on mobile and tablet */}
+      <div className="lg:hidden font-medium text-lg">{pageTitle}</div>
       
       {/* Right side actions */}
       <div className="flex items-center space-x-4">
