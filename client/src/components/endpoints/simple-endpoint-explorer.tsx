@@ -2,19 +2,71 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
+import { Play, RefreshCw } from "lucide-react";
+import axios from "axios";
 
 export function SimpleEndpointExplorer() {
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<any>(null);
+  const [paramValues, setParamValues] = useState<Record<string, string>>({});
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [resultData, setResultData] = useState<any>(null);
 
   // Get endpoint discovery data
-  const { data: endpointData, isLoading } = useQuery({
+  const { data: endpointData, isLoading, refetch } = useQuery({
     queryKey: ['/api/endpoints'],
   });
 
   const endpoints = (endpointData as any)?.data?.endpoints || {};
   const services = (endpointData as any)?.data?.services || {};
   const totalEndpoints = (endpointData as any)?.data?.totalEndpoints || 0;
+
+  const executeEndpoint = async () => {
+    if (!selectedEndpoint) return;
+
+    setIsExecuting(true);
+    try {
+      let url = selectedEndpoint.endpoint;
+      const queryParams: Record<string, string> = {};
+
+      // Handle path parameters and query parameters
+      if (selectedEndpoint.params) {
+        selectedEndpoint.params.forEach((param: any) => {
+          const value = paramValues[param.name];
+          if (value) {
+            if (url.includes(`:${param.name}`)) {
+              // Path parameter
+              url = url.replace(`:${param.name}`, encodeURIComponent(value));
+            } else {
+              // Query parameter
+              queryParams[param.name] = value;
+            }
+          }
+        });
+      }
+
+      const response = await axios.get(url, { params: queryParams });
+      setResultData(response.data);
+    } catch (error: any) {
+      console.error('Error executing endpoint:', error);
+      setResultData({
+        error: true,
+        message: error.response?.data?.message || error.message || 'Request failed',
+        status: error.response?.status
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const handleEndpointSelect = (endpoint: any) => {
+    setSelectedEndpoint(endpoint);
+    setResultData(null);
+    setParamValues({});
+  };
 
   return (
     <div className="space-y-6">
@@ -25,9 +77,20 @@ export function SimpleEndpointExplorer() {
             Comprehensive endpoint detection from your connected integrations
           </p>
         </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          {totalEndpoints} endpoints discovered
-        </Badge>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="text-lg px-4 py-2">
+            {totalEndpoints} endpoints discovered
+          </Badge>
+          <Button 
+            onClick={() => refetch()} 
+            disabled={isLoading}
+            className="flex items-center gap-2"
+            variant="outline"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -87,20 +150,47 @@ export function SimpleEndpointExplorer() {
                         </h4>
                         <div className="grid gap-3">
                           {categoryEndpoints.map((endpoint: any) => (
-                            <div key={endpoint.id} className="border rounded p-3 bg-gray-50">
+                            <div 
+                              key={endpoint.id} 
+                              className={`border rounded p-3 cursor-pointer transition-colors ${
+                                selectedEndpoint?.id === endpoint.id 
+                                  ? 'bg-blue-50 border-blue-200' 
+                                  : 'bg-gray-50 hover:bg-gray-100'
+                              }`}
+                              onClick={() => handleEndpointSelect(endpoint)}
+                            >
                               <div className="flex items-center justify-between mb-2">
                                 <h5 className="font-medium">{endpoint.name}</h5>
-                                <Badge 
-                                  className={
-                                    endpoint.method === 'GET' ? 'bg-green-100 text-green-800' :
-                                    endpoint.method === 'POST' ? 'bg-blue-100 text-blue-800' :
-                                    endpoint.method === 'PUT' ? 'bg-yellow-100 text-yellow-800' :
-                                    endpoint.method === 'DELETE' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }
-                                >
-                                  {endpoint.method}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    className={
+                                      endpoint.method === 'GET' ? 'bg-green-100 text-green-800' :
+                                      endpoint.method === 'POST' ? 'bg-blue-100 text-blue-800' :
+                                      endpoint.method === 'PUT' ? 'bg-yellow-100 text-yellow-800' :
+                                      endpoint.method === 'DELETE' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }
+                                  >
+                                    {endpoint.method}
+                                  </Badge>
+                                  {selectedEndpoint?.id === endpoint.id && (
+                                    <Button 
+                                      size="sm" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        executeEndpoint();
+                                      }}
+                                      disabled={isExecuting}
+                                      className="ml-2"
+                                    >
+                                      {isExecuting ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Play className="w-3 h-3" />
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-muted-foreground mb-2">
                                 {endpoint.description}
@@ -132,6 +222,51 @@ export function SimpleEndpointExplorer() {
                                   </Badge>
                                 )}
                               </div>
+
+                              {/* Parameter inputs for selected endpoint */}
+                              {selectedEndpoint?.id === endpoint.id && endpoint.params && endpoint.params.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                  <h6 className="font-medium mb-3 text-sm">Parameters</h6>
+                                  <div className="space-y-3">
+                                    {endpoint.params.map((param: any) => (
+                                      <div key={param.name}>
+                                        <Label className="text-xs flex items-center gap-2">
+                                          {param.name}
+                                          {param.required && <span className="text-red-500">*</span>}
+                                          <Badge variant="outline" className="text-xs">
+                                            {param.type}
+                                          </Badge>
+                                        </Label>
+                                        <Input
+                                          size="sm"
+                                          placeholder={param.example ? String(param.example) : param.description}
+                                          value={paramValues[param.name] || ''}
+                                          onChange={(e) => setParamValues(prev => ({
+                                            ...prev,
+                                            [param.name]: e.target.value
+                                          }))}
+                                          className="mt-1"
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {param.description}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Results for selected endpoint */}
+                              {selectedEndpoint?.id === endpoint.id && resultData && (
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                  <h6 className="font-medium mb-2 text-sm">Response</h6>
+                                  <div className="bg-white rounded border p-3 max-h-64 overflow-auto">
+                                    <pre className="text-xs">
+                                      {JSON.stringify(resultData, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
