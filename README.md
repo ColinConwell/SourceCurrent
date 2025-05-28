@@ -1,18 +1,8 @@
 # Workspace Integration Tool
 
-A powerful web application that integrates multiple data sources (Slack, Notion, GitHub, Google Drive) into structured formats for AI-powered data pipelines.
+Integrate information from multiple data sources (Slack, Notion, GitHub, Google Drive) into structured formats for AI-powered data pipelines.
 
 ![Dashboard Screenshot](./assets/Manifold-Icon.png)
-
-## Main Features
-
-- **Multi-Service Integration**: Connect seamlessly with Slack, Notion, GitHub, and Google Drive
-- **Auto-Connection Detection**: Automatically detects and configures connections based on available API credentials
-- **Metadata Collection**: Gathers detailed information from connected services for AI processing
-- **Structured Data Format**: Transforms disparate data sources into consistent, structured formats
-- **Modern UI**: Beautiful and intuitive user interface built with React and TailwindCSS
-- **TypeScript**: Full-stack TypeScript application for better type safety and developer experience
-- **GitHub App Integration**: Enhanced security with GitHub App authentication (JWT) instead of personal access tokens
 
 ## 📋 Prerequisites
 
