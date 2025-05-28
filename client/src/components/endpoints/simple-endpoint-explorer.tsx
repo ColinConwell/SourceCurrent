@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw, Download, FileText, Database } from "lucide-react";
 import axios from "axios";
 
 export function SimpleEndpointExplorer() {
@@ -14,6 +15,7 @@ export function SimpleEndpointExplorer() {
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [isExecuting, setIsExecuting] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
+  const [resultView, setResultView] = useState<"structured" | "raw" | "tree">("structured");
 
   // Get endpoint discovery data
   const { data: endpointData, isLoading, refetch } = useQuery({
@@ -66,6 +68,250 @@ export function SimpleEndpointExplorer() {
     setSelectedEndpoint(endpoint);
     setResultData(null);
     setParamValues({});
+  };
+
+  // Transform raw API data into structured format for AI processing
+  const transformDataForAI = (data: any, endpoint: any) => {
+    if (!data || data.error) return data;
+
+    const service = selectedService;
+    const endpointName = endpoint.name;
+    
+    try {
+      switch (service) {
+        case 'slack':
+          if (endpoint.id === 'slack-channels') {
+            return {
+              dataType: 'slack_channels',
+              summary: `${data.data?.channels?.length || 0} Slack channels discovered`,
+              structure: {
+                channels: data.data?.channels?.map((channel: any) => ({
+                  id: channel.id,
+                  name: channel.name,
+                  is_private: channel.is_private,
+                  is_archived: channel.is_archived,
+                  member_count: channel.num_members,
+                  purpose: channel.purpose?.value,
+                  topic: channel.topic?.value
+                })) || []
+              },
+              aiContext: {
+                purpose: 'Channel structure for workspace navigation and communication analysis',
+                keyFields: ['name', 'member_count', 'is_private', 'purpose'],
+                useCases: ['Team organization analysis', 'Communication flow mapping', 'Channel activity insights']
+              }
+            };
+          }
+          if (endpoint.id === 'slack-messages') {
+            return {
+              dataType: 'slack_messages',
+              summary: `${data.data?.messages?.length || 0} Slack messages retrieved`,
+              structure: {
+                messages: data.data?.messages?.map((msg: any) => ({
+                  timestamp: msg.ts,
+                  user: msg.user_info?.real_name || msg.user,
+                  text: msg.text,
+                  message_type: msg.type,
+                  thread_ts: msg.thread_ts,
+                  reactions: msg.reactions?.map((r: any) => ({ name: r.name, count: r.count })) || []
+                })) || []
+              },
+              aiContext: {
+                purpose: 'Message data for conversation analysis and team communication insights',
+                keyFields: ['timestamp', 'user', 'text', 'reactions'],
+                useCases: ['Sentiment analysis', 'Team collaboration patterns', 'Communication frequency tracking']
+              }
+            };
+          }
+          break;
+
+        case 'github':
+          if (endpoint.id === 'github-repos' || endpoint.id === 'github-repositories') {
+            return {
+              dataType: 'github_repositories',
+              summary: `${data.data?.length || 0} GitHub repositories found`,
+              structure: {
+                repositories: data.data?.map((repo: any) => ({
+                  name: repo.name,
+                  full_name: repo.full_name,
+                  description: repo.description,
+                  language: repo.language,
+                  stars: repo.stargazers_count,
+                  forks: repo.forks_count,
+                  issues: repo.open_issues_count,
+                  created_at: repo.created_at,
+                  updated_at: repo.updated_at,
+                  private: repo.private,
+                  size: repo.size
+                })) || []
+              },
+              aiContext: {
+                purpose: 'Repository data for development activity and codebase analysis',
+                keyFields: ['name', 'language', 'stars', 'forks', 'issues'],
+                useCases: ['Technology stack analysis', 'Project activity tracking', 'Code quality assessment']
+              }
+            };
+          }
+          break;
+
+        case 'linear':
+          if (endpoint.id === 'linear-teams') {
+            return {
+              dataType: 'linear_teams',
+              summary: `${data.data?.teams?.nodes?.length || 0} Linear teams discovered`,
+              structure: {
+                teams: data.data?.teams?.nodes?.map((team: any) => ({
+                  id: team.id,
+                  name: team.name,
+                  key: team.key,
+                  description: team.description,
+                  color: team.color,
+                  states: team.states?.nodes || [],
+                  labels: team.labels?.nodes || []
+                })) || []
+              },
+              aiContext: {
+                purpose: 'Team structure for project management and workflow analysis',
+                keyFields: ['name', 'key', 'states', 'labels'],
+                useCases: ['Team organization analysis', 'Workflow optimization', 'Project tracking']
+              }
+            };
+          }
+          if (endpoint.id === 'linear-team-issues') {
+            return {
+              dataType: 'linear_issues',
+              summary: `${data.data?.team?.issues?.nodes?.length || 0} Linear issues found`,
+              structure: {
+                issues: data.data?.team?.issues?.nodes?.map((issue: any) => ({
+                  identifier: issue.identifier,
+                  title: issue.title,
+                  description: issue.description,
+                  priority: issue.priority,
+                  estimate: issue.estimate,
+                  state: issue.state?.name,
+                  assignee: issue.assignee?.name,
+                  creator: issue.creator?.name,
+                  created_at: issue.createdAt,
+                  updated_at: issue.updatedAt,
+                  completed_at: issue.completedAt,
+                  labels: issue.labels?.nodes?.map((l: any) => l.name) || []
+                })) || []
+              },
+              aiContext: {
+                purpose: 'Issue data for project progress and team productivity analysis',
+                keyFields: ['identifier', 'title', 'priority', 'state', 'assignee'],
+                useCases: ['Sprint planning', 'Team workload analysis', 'Project timeline tracking']
+              }
+            };
+          }
+          break;
+
+        case 'notion':
+          return {
+            dataType: 'notion_data',
+            summary: `Notion ${endpointName} data retrieved`,
+            structure: data.data || data,
+            aiContext: {
+              purpose: 'Notion workspace data for knowledge management and documentation analysis',
+              keyFields: ['properties', 'content', 'metadata'],
+              useCases: ['Knowledge base analysis', 'Documentation tracking', 'Content organization']
+            }
+          };
+
+        default:
+          return {
+            dataType: 'generic_api_response',
+            summary: `${service} ${endpointName} data retrieved`,
+            structure: data,
+            aiContext: {
+              purpose: 'Raw API response data',
+              keyFields: Object.keys(data.data || data || {}),
+              useCases: ['Data exploration', 'API testing', 'Integration development']
+            }
+          };
+      }
+    } catch (error) {
+      console.error('Error transforming data:', error);
+      return {
+        dataType: 'transformation_error',
+        error: 'Failed to transform data for AI processing',
+        rawData: data
+      };
+    }
+
+    return data;
+  };
+
+  // Generate tree view representation of data
+  const generateTreeView = (obj: any, depth = 0): React.ReactNode => {
+    if (obj === null || obj === undefined) {
+      return <span className="text-gray-400">null</span>;
+    }
+
+    if (typeof obj === 'string') {
+      return <span className="text-green-600">"{obj}"</span>;
+    }
+
+    if (typeof obj === 'number' || typeof obj === 'boolean') {
+      return <span className="text-blue-600">{String(obj)}</span>;
+    }
+
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) {
+        return <span className="text-gray-400">[]</span>;
+      }
+      return (
+        <div className={depth > 0 ? 'ml-4' : ''}>
+          <span className="text-gray-600">[</span>
+          {obj.slice(0, 10).map((item, index) => (
+            <div key={index} className="ml-4">
+              <span className="text-gray-400">{index}:</span> {generateTreeView(item, depth + 1)}
+            </div>
+          ))}
+          {obj.length > 10 && (
+            <div className="ml-4 text-gray-400">... and {obj.length - 10} more items</div>
+          )}
+          <span className="text-gray-600">]</span>
+        </div>
+      );
+    }
+
+    if (typeof obj === 'object') {
+      const keys = Object.keys(obj);
+      if (keys.length === 0) {
+        return <span className="text-gray-400">{"{}"}</span>;
+      }
+      return (
+        <div className={depth > 0 ? 'ml-4' : ''}>
+          <span className="text-gray-600">{"{"}</span>
+          {keys.slice(0, 20).map((key) => (
+            <div key={key} className="ml-4">
+              <span className="text-purple-600">"{key}"</span>: {generateTreeView(obj[key], depth + 1)}
+            </div>
+          ))}
+          {keys.length > 20 && (
+            <div className="ml-4 text-gray-400">... and {keys.length - 20} more properties</div>
+          )}
+          <span className="text-gray-600">{"}"}</span>
+        </div>
+      );
+    }
+
+    return <span>{String(obj)}</span>;
+  };
+
+  const downloadStructuredData = () => {
+    if (!resultData || !selectedEndpoint) return;
+    
+    const transformedData = transformDataForAI(resultData, selectedEndpoint);
+    const dataStr = JSON.stringify(transformedData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedService}_${selectedEndpoint.id}_structured_data.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -256,15 +502,86 @@ export function SimpleEndpointExplorer() {
                                 </div>
                               )}
 
-                              {/* Results for selected endpoint */}
+                              {/* Enhanced Results for selected endpoint */}
                               {selectedEndpoint?.id === endpoint.id && resultData && (
                                 <div className="mt-4 pt-4 border-t border-gray-200">
-                                  <h6 className="font-medium mb-2 text-sm">Response</h6>
-                                  <div className="bg-white rounded border p-3 max-h-64 overflow-auto">
-                                    <pre className="text-xs">
-                                      {JSON.stringify(resultData, null, 2)}
-                                    </pre>
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h6 className="font-medium text-sm">Response Data</h6>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={downloadStructuredData}
+                                        className="text-xs"
+                                      >
+                                        <Download className="w-3 h-3 mr-1" />
+                                        Export
+                                      </Button>
+                                    </div>
                                   </div>
+
+                                  <Tabs value={resultView} onValueChange={(v) => setResultView(v as any)} className="w-full">
+                                    <TabsList className="grid w-full grid-cols-3">
+                                      <TabsTrigger value="structured" className="text-xs">
+                                        <Database className="w-3 h-3 mr-1" />
+                                        AI-Ready
+                                      </TabsTrigger>
+                                      <TabsTrigger value="tree" className="text-xs">
+                                        <FileText className="w-3 h-3 mr-1" />
+                                        Tree View
+                                      </TabsTrigger>
+                                      <TabsTrigger value="raw" className="text-xs">Raw JSON</TabsTrigger>
+                                    </TabsList>
+
+                                    <TabsContent value="structured" className="mt-3">
+                                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded border p-4 max-h-96 overflow-auto">
+                                        {(() => {
+                                          const structured = transformDataForAI(resultData, selectedEndpoint);
+                                          return (
+                                            <div className="space-y-4">
+                                              {structured.summary && (
+                                                <div className="bg-white rounded p-3 border-l-4 border-blue-500">
+                                                  <p className="font-medium text-sm text-blue-800">{structured.summary}</p>
+                                                </div>
+                                              )}
+                                              
+                                              {structured.aiContext && (
+                                                <div className="bg-white rounded p-3">
+                                                  <h6 className="font-medium text-xs text-gray-700 mb-2">AI Context</h6>
+                                                  <div className="space-y-2 text-xs">
+                                                    <p><strong>Purpose:</strong> {structured.aiContext.purpose}</p>
+                                                    <p><strong>Key Fields:</strong> {structured.aiContext.keyFields.join(', ')}</p>
+                                                    <p><strong>Use Cases:</strong> {structured.aiContext.useCases.join(', ')}</p>
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              <div className="bg-white rounded p-3">
+                                                <h6 className="font-medium text-xs text-gray-700 mb-2">Structured Data</h6>
+                                                <pre className="text-xs overflow-auto">
+                                                  {JSON.stringify(structured.structure || structured, null, 2)}
+                                                </pre>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="tree" className="mt-3">
+                                      <div className="bg-gray-50 rounded border p-3 max-h-96 overflow-auto text-xs font-mono">
+                                        {generateTreeView(resultData)}
+                                      </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="raw" className="mt-3">
+                                      <div className="bg-gray-50 rounded border p-3 max-h-96 overflow-auto">
+                                        <pre className="text-xs">
+                                          {JSON.stringify(resultData, null, 2)}
+                                        </pre>
+                                      </div>
+                                    </TabsContent>
+                                  </Tabs>
                                 </div>
                               )}
                             </div>
