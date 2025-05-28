@@ -8,9 +8,10 @@ import { EndpointList, EndpointData } from "./endpoint-list";
 import { EndpointResult } from "./endpoint-result";
 import { ServiceSelector } from "./service-selector";
 import { cn } from "@/lib/utils";
+import { Clock, Globe, ShieldCheck, Zap } from "lucide-react";
 import axios from "axios";
 
-type ServiceType = "slack" | "notion" | "github" | "linear";
+type ServiceType = "slack" | "notion" | "github" | "linear" | "gdrive";
 
 export function EndpointExplorer() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
@@ -26,61 +27,27 @@ export function EndpointExplorer() {
     queryKey: ['/api/environment/services'],
   });
 
+  // Get comprehensive endpoint discovery data
+  const { data: endpointData, isLoading: endpointsLoading, refetch: refetchEndpoints } = useQuery({
+    queryKey: ['/api/endpoints'],
+  });
+
   const availableServices = servicesData?.data?.availableServices || {
     slack: false,
     notion: false,
     github: false,
     linear: false,
+    gdrive: false,
   };
 
-  // Generate endpoints based on selected service
+  // Get discovered endpoints for selected service
   const endpoints = React.useMemo(() => {
-    if (!selectedService) return [];
+    if (!selectedService || !endpointData?.data?.endpoints) return [];
+    return endpointData.data.endpoints[selectedService] || [];
+  }, [selectedService, endpointData]);
 
-    switch (selectedService) {
-      case "slack":
-        return [
-          {
-            id: "slack-messages",
-            name: "List Messages",
-            description: "Get messages from a Slack channel",
-            endpoint: "/api/slack/messages",
-            method: "GET" as const,
-            params: [
-              {
-                name: "limit",
-                type: "number",
-                description: "Maximum number of messages to return",
-                required: false
-              }
-            ]
-          }
-        ];
-      case "notion":
-        return [
-          {
-            id: "notion-tasks",
-            name: "List Tasks",
-            description: "Get task items from a Notion database",
-            endpoint: "/api/notion/tasks",
-            method: "GET" as const,
-            params: [
-              {
-                name: "databaseId",
-                type: "string",
-                description: "ID of the Notion database to query",
-                required: true
-              },
-              {
-                name: "filter",
-                type: "string",
-                description: "Filter criteria in JSON format",
-                required: false
-              }
-            ]
-          }
-        ];
-      case "github":
+  // Get service information
+  const serviceInfo = endpointData?.data?.services?.[selectedService || ''] || null;
         return [
           {
             id: "github-repositories",

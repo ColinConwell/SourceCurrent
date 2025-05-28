@@ -31,7 +31,7 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/endpoints", async (_req: Request, res: Response) => {
     try {
       // Get all active connections from storage
-      const connections = await storage.getConnections();
+      const connections = await storage.getConnections(1); // Using default user ID
       const activeConnections = connections.filter(conn => conn.active);
 
       // Register discovery services for active connections
