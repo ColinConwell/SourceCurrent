@@ -14,11 +14,15 @@ export default function Navbar({ onMenuToggle, className, pageTitle = "Dashboard
     )}>
       {/* Menu toggle button - visible on mobile and tablet */}
       <button 
-        className="flex lg:hidden items-center justify-center text-neutral-700 hover:text-primary-500 focus:outline-none"
+        className="flex lg:hidden items-center justify-center text-neutral-700 hover:text-primary-500 focus:outline-none p-2"
         onClick={onMenuToggle}
         aria-label="Toggle menu"
       >
-        <i className="ri-menu-line text-2xl"></i>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </button>
       
       {/* Page title - visible on mobile and tablet */}
