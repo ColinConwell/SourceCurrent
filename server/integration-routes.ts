@@ -4,7 +4,18 @@ import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
 import { getGitHubClientForConnection } from "./github-client";
 import { getLinearClientForConnection } from "./linear-client";
+import { getSlackClientForConnection } from "./slack-client";
+import { getNotionClientForConnection } from "./notion-client";
+import { getGDriveClientForConnection } from "./gdrive-client";
 import { storage } from "./storage";
+import {
+  EndpointDiscoveryService,
+  GitHubEndpointDiscovery,
+  LinearEndpointDiscovery,
+  SlackEndpointDiscovery,
+  NotionEndpointDiscovery,
+  GDriveEndpointDiscovery
+} from "./endpoint-discovery";
 
 /**
  * Sets up routes for our integrations with Slack, Notion, etc.
@@ -13,115 +24,73 @@ import { storage } from "./storage";
 export async function setupIntegrationRoutes(app: Express) {
   console.log("Setting up integration routes...");
   
-  // API endpoints discovery endpoint
+  // Initialize endpoint discovery service
+  const discoveryService = new EndpointDiscoveryService();
+
+  // API endpoints discovery endpoint with comprehensive detection
   app.get("/api/endpoints", async (_req: Request, res: Response) => {
     try {
-      const endpoints = {
-        slack: [
-          {
-            id: "slack-messages",
-            name: "Channel Messages",
-            description: "Get recent messages from a Slack channel",
-            endpoint: "/api/slack/messages",
-            method: "GET",
-            category: "Messages",
+      // Get all active connections from storage
+      const connections = await storage.getConnections();
+      const activeConnections = connections.filter(conn => conn.active);
+
+      // Register discovery services for active connections
+      for (const connection of activeConnections) {
+        try {
+          switch (connection.service) {
+            case 'slack':
+              const slackClient = await getSlackClientForConnection(connection.id);
+              discoveryService.registerDiscovery('slack', new SlackEndpointDiscovery(slackClient));
+              break;
+            case 'notion':
+              const notionClient = await getNotionClientForConnection(connection.id);
+              discoveryService.registerDiscovery('notion', new NotionEndpointDiscovery(notionClient));
+              break;
+            case 'github':
+              const githubClient = await getGitHubClientForConnection(connection.id);
+              discoveryService.registerDiscovery('github', new GitHubEndpointDiscovery(githubClient));
+              break;
+            case 'linear':
+              const linearClient = await getLinearClientForConnection(connection.id);
+              discoveryService.registerDiscovery('linear', new LinearEndpointDiscovery(linearClient));
+              break;
+            case 'gdrive':
+              const gdriveClient = await getGDriveClientForConnection(connection.id);
+              discoveryService.registerDiscovery('gdrive', new GDriveEndpointDiscovery(gdriveClient));
+              break;
           }
-        ],
-        notion: [
-          {
-            id: "notion-tasks",
-            name: "Tasks List",
-            description: "Get tasks from a Notion database",
-            endpoint: "/api/notion/tasks",
-            method: "GET",
-            category: "Databases",
-            params: [
-              {
-                name: "databaseId",
-                type: "string",
-                required: true,
-                description: "The ID of the Notion database"
-              }
-            ]
-          }
-        ],
-        github: [
-          {
-            id: "github-repos",
-            name: "Repositories",
-            description: "Get a list of GitHub repositories",
-            endpoint: "/api/github/repositories",
-            method: "GET",
-            category: "Repositories",
-          },
-          {
-            id: "github-repo-details",
-            name: "Repository Details",
-            description: "Get details about a specific GitHub repository",
-            endpoint: "/api/github/repositories/:owner/:repo",
-            method: "GET",
-            category: "Repositories",
-            params: [
-              {
-                name: "owner",
-                type: "string",
-                required: true,
-                description: "Repository owner"
-              },
-              {
-                name: "repo",
-                type: "string",
-                required: true,
-                description: "Repository name"
-              }
-            ]
-          }
-        ],
-        linear: [
-          {
-            id: "linear-teams",
-            name: "Teams",
-            description: "Get a list of Linear teams",
-            endpoint: "/api/linear/teams",
-            method: "GET",
-            category: "Teams",
-          },
-          {
-            id: "linear-workflow-states",
-            name: "Workflow States",
-            description: "Get workflow states from Linear",
-            endpoint: "/api/linear/workflow-states",
-            method: "GET",
-            category: "Workflows",
-          },
-          {
-            id: "linear-team-issues",
-            name: "Team Issues",
-            description: "Get issues for a specific Linear team",
-            endpoint: "/api/linear/teams/:teamId/issues",
-            method: "GET",
-            category: "Issues",
-            params: [
-              {
-                name: "teamId",
-                type: "string",
-                required: true,
-                description: "The ID of the Linear team"
-              }
-            ]
-          }
-        ]
-      };
-      
-      res.json({
-        success: true,
-        data: endpoints
+        } catch (clientError) {
+          console.error(`Error initializing ${connection.service} client:`, clientError);
+        }
+      }
+
+      // Discover all endpoints
+      const endpoints = await discoveryService.discoverAllEndpoints();
+
+      // Add service info for each discovered service
+      const servicesInfo: Record<string, any> = {};
+      for (const service of discoveryService.getRegisteredServices()) {
+        try {
+          servicesInfo[service] = discoveryService.getServiceInfo(service);
+        } catch (error) {
+          console.error(`Error getting service info for ${service}:`, error);
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        data: {
+          endpoints,
+          services: servicesInfo,
+          discoveredAt: new Date().toISOString(),
+          totalEndpoints: Object.values(endpoints).reduce((total, serviceEndpoints) => total + serviceEndpoints.length, 0)
+        }
       });
     } catch (error: any) {
-      console.error("Error getting API endpoints:", error);
+      console.error("Error discovering endpoints:", error);
       res.status(500).json({
         success: false,
-        error: error.message || "Failed to get API endpoints"
+        error: error.message || "Failed to discover endpoints"
       });
     }
   });
