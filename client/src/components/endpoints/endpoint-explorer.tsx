@@ -1,26 +1,16 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { EndpointList, EndpointData } from "./endpoint-list";
+import { EndpointResult } from "./endpoint-result";
+import { ServiceSelector } from "./service-selector";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
-type ServiceType = "slack" | "notion" | "github" | "linear" | "gdrive";
-
-interface EndpointData {
-  id: string;
-  name: string;
-  description: string;
-  endpoint: string;
-  method: string;
-  category?: string;
-  params?: Array<{
-    name: string;
-    type: string;
-    description: string;
-    required: boolean;
-  }>;
-}
+type ServiceType = "slack" | "notion" | "github" | "linear";
 
 export function EndpointExplorer() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
@@ -36,27 +26,61 @@ export function EndpointExplorer() {
     queryKey: ['/api/environment/services'],
   });
 
-  // Get comprehensive endpoint discovery data
-  const { data: endpointData, isLoading: endpointsLoading, refetch: refetchEndpoints } = useQuery({
-    queryKey: ['/api/endpoints'],
-  });
-
   const availableServices = servicesData?.data?.availableServices || {
     slack: false,
     notion: false,
     github: false,
     linear: false,
-    gdrive: false,
   };
 
-  // Get discovered endpoints for selected service
+  // Generate endpoints based on selected service
   const endpoints = React.useMemo(() => {
-    if (!selectedService || !endpointData?.data?.endpoints) return [];
-    return endpointData.data.endpoints[selectedService] || [];
-  }, [selectedService, endpointData]);
+    if (!selectedService) return [];
 
-  // Get service information
-  const serviceInfo = endpointData?.data?.services?.[selectedService || ''] || null;
+    switch (selectedService) {
+      case "slack":
+        return [
+          {
+            id: "slack-messages",
+            name: "List Messages",
+            description: "Get messages from a Slack channel",
+            endpoint: "/api/slack/messages",
+            method: "GET" as const,
+            params: [
+              {
+                name: "limit",
+                type: "number",
+                description: "Maximum number of messages to return",
+                required: false
+              }
+            ]
+          }
+        ];
+      case "notion":
+        return [
+          {
+            id: "notion-tasks",
+            name: "List Tasks",
+            description: "Get task items from a Notion database",
+            endpoint: "/api/notion/tasks",
+            method: "GET" as const,
+            params: [
+              {
+                name: "databaseId",
+                type: "string",
+                description: "ID of the Notion database to query",
+                required: true
+              },
+              {
+                name: "filter",
+                type: "string",
+                description: "Filter criteria in JSON format",
+                required: false
+              }
+            ]
+          }
+        ];
+      case "github":
         return [
           {
             id: "github-repositories",

@@ -1,7 +1,7 @@
 import React from "react";
 import AppLayout from "@/components/layout/app-layout";
 import { PageHeader } from "@/components/ui/page-header";
-import { SimpleEndpointExplorer } from "@/components/endpoints/simple-endpoint-explorer";
+import { EndpointExplorer } from "@/components/endpoints/endpoint-explorer";
 
 export default function Endpoints() {
   return (
@@ -13,7 +13,7 @@ export default function Endpoints() {
           icon="ri-api-line"
         />
         
-        <SimpleEndpointExplorer />
+        <EndpointExplorer />
       </div>
     </AppLayout>
   );
