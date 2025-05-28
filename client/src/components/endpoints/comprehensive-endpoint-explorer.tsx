@@ -60,16 +60,16 @@ export function ComprehensiveEndpointExplorer() {
     queryKey: ['/api/environment/services'],
   });
 
-  const availableServices = servicesData?.data?.availableServices || {};
+  const availableServices = (servicesData as any)?.data?.availableServices || {};
 
   // Get discovered endpoints for selected service
   const endpoints = React.useMemo(() => {
-    if (!selectedService || !endpointData?.data?.endpoints) return [];
-    return endpointData.data.endpoints[selectedService] || [];
+    if (!selectedService || !(endpointData as any)?.data?.endpoints) return [];
+    return (endpointData as any).data.endpoints[selectedService] || [];
   }, [selectedService, endpointData]);
 
   // Get service information
-  const serviceInfo = endpointData?.data?.services?.[selectedService || ''] || null;
+  const serviceInfo = (endpointData as any)?.data?.services?.[selectedService || ''] || null;
 
   // Group endpoints by category
   const endpointsByCategory = React.useMemo(() => {

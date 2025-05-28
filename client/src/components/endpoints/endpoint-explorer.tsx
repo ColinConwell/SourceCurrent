@@ -1,17 +1,26 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { EndpointList, EndpointData } from "./endpoint-list";
-import { EndpointResult } from "./endpoint-result";
-import { ServiceSelector } from "./service-selector";
 import { cn } from "@/lib/utils";
-import { Clock, Globe, ShieldCheck, Zap } from "lucide-react";
-import axios from "axios";
 
 type ServiceType = "slack" | "notion" | "github" | "linear" | "gdrive";
+
+interface EndpointData {
+  id: string;
+  name: string;
+  description: string;
+  endpoint: string;
+  method: string;
+  category?: string;
+  params?: Array<{
+    name: string;
+    type: string;
+    description: string;
+    required: boolean;
+  }>;
+}
 
 export function EndpointExplorer() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
