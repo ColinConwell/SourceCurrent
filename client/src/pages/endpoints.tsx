@@ -13,7 +13,7 @@ export default function Endpoints() {
           icon="ri-api-line"
         />
         
-        <ComprehensiveEndpointExplorer />
+        <SimpleEndpointExplorer />
       </div>
     </AppLayout>
   );

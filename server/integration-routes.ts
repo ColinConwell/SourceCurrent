@@ -401,7 +401,7 @@ export async function setupIntegrationRoutes(app: Express) {
             }
             
             result.linear = {
-              teams: teams.map(team => ({
+              teams: teams.map((team: any) => ({
                 id: team.id,
                 name: team.name,
                 key: team.key,
