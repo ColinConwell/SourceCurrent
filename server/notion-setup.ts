@@ -1,21 +1,64 @@
 import { Client } from "@notionhq/client";
 
-// Initialize Notion client with integration secret
-export const notion = new Client({
-  auth: process.env.NOTION_INTEGRATION_SECRET!,
-});
+let notionClient: Client | null = null;
+let notionPageId: string | null = null;
 
-// Extract the page ID from the Notion page URL
-export function extractPageIdFromUrl(pageUrl: string): string {
-  const match = pageUrl.match(/([a-f0-9]{32})(?:[?#]|$)/i);
-  if (match && match[1]) {
-    return match[1];
+export function getNotion() {
+  if (!notionClient) {
+    notionClient = new Client({
+      auth: process.env.NOTION_INTEGRATION_SECRET || "dummy_secret",
+    });
   }
-
-  throw Error("Failed to extract page ID");
+  return notionClient;
 }
 
-export const NOTION_PAGE_ID = extractPageIdFromUrl(process.env.NOTION_PAGE_URL!);
+export function getNotionPageId() {
+  if (!notionPageId && process.env.NOTION_PAGE_URL) {
+    try {
+      notionPageId = extractPageIdFromUrl(process.env.NOTION_PAGE_URL);
+    } catch (e) {
+      console.warn("Invalid Notion Page URL, fallback to dummy ID");
+      notionPageId = "dummy_id";
+    }
+  }
+  return notionPageId || "dummy_id";
+}
+
+// Proxy for backward compatibility
+export const notion = new Proxy({}, {
+  get: (_target, prop) => {
+    const client = getNotion();
+    return client[prop as keyof Client];
+  }
+}) as Client;
+
+// Backward compatible export for page ID, though using function is better
+export const NOTION_PAGE_ID = new Proxy({}, {
+  get: (_target, prop) => {
+    if (prop === 'toString' || prop === 'valueOf') {
+      return () => getNotionPageId();
+    }
+    // Return result of getNotionPageId() for other access
+    const val = getNotionPageId();
+    // @ts-ignore
+    return val[prop];
+  }
+}) as unknown as string;
+
+
+export function checkNotionEnv(): boolean {
+  return !!(process.env.NOTION_INTEGRATION_SECRET && process.env.NOTION_PAGE_URL);
+}
+
+export async function initNotion() {
+  if (!checkNotionEnv()) {
+    console.warn("Notion environment variables missing. Skipping Notion initialization.");
+    return;
+  }
+  getNotion();
+  getNotionPageId();
+  console.log("Notion integration configured.");
+}
 
 /**
  * Lists all child databases contained within NOTION_PAGE_ID
@@ -118,7 +161,7 @@ export async function findTasksDatabase() {
   try {
     // Get all databases
     const databases = await getNotionDatabases();
-    
+
     // Look for a database with "task", "todo", or "to-do" in the title
     for (const db of databases) {
       // Access title safely with type narrowing
@@ -127,21 +170,21 @@ export async function findTasksDatabase() {
         // @ts-ignore - We know this is a DatabaseObjectResponse
         const title = db.title[0]?.plain_text || '';
         const titleLower = title.toLowerCase();
-        
-        if (titleLower.includes('task') || 
-            titleLower.includes('todo') || 
-            titleLower.includes('to-do') ||
-            titleLower.includes('to do')) {
+
+        if (titleLower.includes('task') ||
+          titleLower.includes('todo') ||
+          titleLower.includes('to-do') ||
+          titleLower.includes('to do')) {
           return db.id;
         }
       }
     }
-    
+
     // If no task database found, return the first database (if any)
     if (databases.length > 0) {
       return databases[0].id;
     }
-    
+
     return undefined;
   } catch (error) {
     console.error("Error finding tasks database:", error);
@@ -155,21 +198,21 @@ export async function getTasks(tasksDatabaseId?: string) {
     // If no database ID provided, try to find a tasks database
     if (!tasksDatabaseId) {
       const foundDatabaseId = await findTasksDatabase();
-      
+
       // If still no database ID, throw error
       if (!foundDatabaseId) {
         throw new Error("No tasks database found in Notion workspace");
       }
-      
+
       tasksDatabaseId = foundDatabaseId;
     }
-    
+
     console.log(`Querying Notion database: ${tasksDatabaseId}`);
-    
+
     const response = await notion.databases.query({
       database_id: tasksDatabaseId,
     });
-    
+
     // Log the property structure of the first result to help with debugging
     if (response.results.length > 0) {
       const firstPage = response.results[0] as any;
@@ -178,7 +221,7 @@ export async function getTasks(tasksDatabaseId?: string) {
 
     return response.results.map((page: any) => {
       const properties = page.properties;
-      
+
       // Try to find properties by name or fallback to finding by type
       const title = findPropertyValue(properties, 'Title', 'title') || 'Untitled Task';
       const description = findPropertyValue(properties, 'Description', 'rich_text') || '';
@@ -186,11 +229,11 @@ export async function getTasks(tasksDatabaseId?: string) {
       const section = findPropertyValue(properties, 'Section', 'select') || 'Uncategorized';
       const priority = findPropertyValue(properties, 'Priority', 'select') || null;
       const status = findPropertyValue(properties, 'Status', 'select') || null;
-      
+
       // Find date properties
       const dueDateProp = findPropertyByType(properties, 'date', 0);
       const completedAtProp = findPropertyByType(properties, 'date', 1);
-      
+
       const dueDate = dueDateProp?.date?.start ? new Date(dueDateProp.date.start) : null;
       const completedAt = completedAtProp?.date?.start ? new Date(completedAtProp.date.start) : null;
 
@@ -236,11 +279,11 @@ function findPropertyValue(properties: Record<string, any>, name: string, type: 
       return properties[name].checkbox;
     }
   }
-  
+
   // Try case-insensitive
-  const key = Object.keys(properties).find(k => 
+  const key = Object.keys(properties).find(k =>
     k.toLowerCase() === name.toLowerCase() && properties[k].type === type);
-  
+
   if (key) {
     if (type === 'title' && properties[key].title.length > 0) {
       return properties[key].title[0].plain_text;
@@ -252,7 +295,7 @@ function findPropertyValue(properties: Record<string, any>, name: string, type: 
       return properties[key].checkbox;
     }
   }
-  
+
   return null;
 }
 
@@ -261,9 +304,9 @@ function findPropertyValue(properties: Record<string, any>, name: string, type: 
  */
 function findPropertyValueByType(properties: Record<string, any>, type: string) {
   const property = findPropertyByType(properties, type);
-  
+
   if (!property) return null;
-  
+
   if (type === 'title' && property.title.length > 0) {
     return property.title[0].plain_text;
   } else if (type === 'rich_text' && property.rich_text.length > 0) {
@@ -273,6 +316,6 @@ function findPropertyValueByType(properties: Record<string, any>, type: string) 
   } else if (type === 'checkbox') {
     return property.checkbox;
   }
-  
+
   return null;
 }

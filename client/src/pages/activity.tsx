@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Activity {
   id: number;
@@ -25,21 +26,21 @@ interface Activity {
 
 export default function ActivityPage() {
   const [filter, setFilter] = useState<string>("all");
-  
+
   // Fetch activity data
   const { data: activities, isLoading } = useQuery<Activity[]>({
     queryKey: ['/api/activities', { limit: 50 }],
   });
-  
+
   // Filter activities based on selected filter
   const filteredActivities = React.useMemo(() => {
     if (!activities) return [];
-    
+
     if (filter === "all") return activities;
-    
+
     return activities.filter(activity => activity.type === filter);
   }, [activities, filter]);
-  
+
   // Icon mapping for different activity types
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -57,7 +58,7 @@ export default function ActivityPage() {
         return "ri-information-line";
     }
   };
-  
+
   // Status color mapping
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,10 +120,11 @@ export default function ActivityPage() {
                 ))}
               </div>
             ) : filteredActivities.length === 0 ? (
-              <div className="text-center py-6 text-neutral-500">
-                <i className="ri-file-search-line text-4xl mb-2"></i>
-                <p>No activities found</p>
-              </div>
+              <EmptyState
+                title="No activities found"
+                description="No recent activity to display matching your filter."
+                icon="ri-file-search-line"
+              />
             ) : (
               <div className="space-y-4">
                 {filteredActivities.map((activity) => (
@@ -152,55 +154,61 @@ export default function ActivityPage() {
                 ))}
               </div>
             )}
-            
+
             <div className="flex justify-center mt-4">
               <Button variant="outline">Load More</Button>
             </div>
           </CardContent>
         </Card>
-        
+
         <Tabs defaultValue="user">
           <TabsList>
             <TabsTrigger value="user">User Activity</TabsTrigger>
             <TabsTrigger value="system">System Events</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="user" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>User Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-6 text-neutral-500">
-                  <p>Detailed user activity log will be displayed here</p>
-                </div>
+                <EmptyState
+                  title="No User Data"
+                  description="Detailed user activity log will be displayed here in a future update."
+                  icon="ri-user-search-line"
+                />
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="system" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>System Events</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-6 text-neutral-500">
-                  <p>System events and background tasks will be displayed here</p>
-                </div>
+                <EmptyState
+                  title="No System Events"
+                  description="System events and background tasks will be logged here."
+                  icon="ri-server-line"
+                />
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="errors" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>Error Log</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-6 text-neutral-500">
-                  <p>Application errors and warnings will be displayed here</p>
-                </div>
+                <EmptyState
+                  title="No Errors Logged"
+                  description="Application errors and warnings will be displayed here."
+                  icon="ri-alert-line"
+                />
               </CardContent>
             </Card>
           </TabsContent>

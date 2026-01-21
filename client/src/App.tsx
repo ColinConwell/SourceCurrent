@@ -11,6 +11,7 @@ import Integrations from "@/pages/integrations";
 import Configurations from "@/pages/configurations";
 import Activity from "@/pages/activity";
 import Help from "@/pages/help";
+import { DebugPanel } from "@/components/debug/debug-panel";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
+        <DebugPanel />
       </TooltipProvider>
     </QueryClientProvider>
   );

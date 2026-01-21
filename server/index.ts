@@ -4,10 +4,21 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupConnectionsFromEnv, getAvailableServicesFromEnv } from "./env-setup";
 import { setupMetadataRoutes } from "./metadata-routes";
 import { setupIntegrationRoutes } from "./integration-routes";
+import { serviceManager } from "./services/service-manager";
+import { initSlack, checkSlackEnv } from "./slack-setup";
+import { initNotion, checkNotionEnv } from "./notion-setup";
+
+import { safetyModeMiddleware } from "./middleware/safety";
+
+import { authMiddleware } from "./middleware/auth";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+// Apply safety mode middleware early to catch destructive requests
+app.use(safetyModeMiddleware);
+// Apply auth middleware to all routes
+app.use(authMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -40,24 +51,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Check available API integrations in environment variables
-  const availableServices = getAvailableServicesFromEnv();
-  console.log("Available API integrations from environment:", 
-    Object.entries(availableServices)
-      .filter(([_, available]) => available)
-      .map(([service, _]) => service)
-      .join(", ") || "None"
-  );
-  
+  // Register and initialize services
+  serviceManager.register("slack", checkSlackEnv, initSlack);
+  serviceManager.register("notion", checkNotionEnv, initNotion);
+
+  await serviceManager.initializeAll();
+
   // Set up connections from environment variables
   await setupConnectionsFromEnv();
-  
+
   // Set up metadata routes for connected services
   await setupMetadataRoutes(app);
-  
+
   // Set up integration routes for connected services
   await setupIntegrationRoutes(app);
-  
+
   // Register API routes
   const server = await registerRoutes(app);
 
@@ -81,12 +89,10 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST || "0.0.0.0";
+
+  server.listen(port, host, () => {
+    log(`serving on port ${port} at ${host}`);
   });
 })();

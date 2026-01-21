@@ -6,26 +6,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export function IntegrationDashboard() {
-  const [activeTab, setActiveTab] = useState<'slack' | 'notion' | 'github'>('slack');
+  const [activeTab, setActiveTab] = useState<'slack' | 'notion' | 'github' | 'gmail' | 'gcal' | 'discord'>('slack');
   const { toast } = useToast();
-  
+
   // Fetch integrated data from our API
-  const { 
-    data: dashboardData, 
-    isLoading, 
-    error, 
-    refetch 
+  const {
+    data: dashboardData,
+    isLoading,
+    error,
+    refetch
   } = useQuery<any>({
     queryKey: ['/api/integration/dashboard'],
   });
-  
+
   // When the component mounts, check connection status
   useEffect(() => {
     if (dashboardData) {
       const status = dashboardData.data?.integrationStatus;
-      
+
       if (status) {
         if (status.slack === 'error') {
           toast({
@@ -34,11 +35,35 @@ export function IntegrationDashboard() {
             variant: "destructive"
           });
         }
-        
+
         if (status.notion === 'error') {
           toast({
             title: "Notion Connection Issue",
             description: "There was a problem connecting to Notion. Check your API credentials.",
+            variant: "destructive"
+          });
+        }
+
+        if (status.gmail === 'error') {
+          toast({
+            title: "Gmail Connection Issue",
+            description: "There was a problem connecting to Gmail. Check your API credentials.",
+            variant: "destructive"
+          });
+        }
+
+        if (status.gcal === 'error') {
+          toast({
+            title: "Calendar Connection Issue",
+            description: "There was a problem connecting to Google Calendar. Check your API credentials.",
+            variant: "destructive"
+          });
+        }
+
+        if (status.discord === 'error') {
+          toast({
+            title: "Discord Connection Issue",
+            description: "There was a problem connecting to Discord. Check your API credentials.",
             variant: "destructive"
           });
         }
@@ -53,13 +78,13 @@ export function IntegrationDashboard() {
       }
     }
   }, [dashboardData, toast]);
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-neutral-900">Integration Dashboard</h2>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={() => refetch()}
           disabled={isLoading}
@@ -68,7 +93,7 @@ export function IntegrationDashboard() {
           Refresh Data
         </Button>
       </div>
-      
+
       {error ? (
         <Card className="border-red-300 bg-red-50">
           <CardContent className="p-4">
@@ -84,8 +109,8 @@ export function IntegrationDashboard() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'slack' | 'notion' | 'github')}>
-          <TabsList className="grid grid-cols-3 w-[400px]">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+          <TabsList className="grid grid-cols-3 w-full max-w-[600px] h-auto">
             <TabsTrigger value="slack">
               <div className="flex items-center">
                 <div className="w-4 h-4 mr-2 rounded-sm" style={{ backgroundColor: '#4A154B' }}></div>
@@ -104,8 +129,26 @@ export function IntegrationDashboard() {
                 GitHub
               </div>
             </TabsTrigger>
+            <TabsTrigger value="gmail">
+              <div className="flex items-center">
+                <i className="ri-mail-line mr-2 text-red-500"></i>
+                Gmail
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="gcal">
+              <div className="flex items-center">
+                <i className="ri-calendar-line mr-2 text-blue-500"></i>
+                Calendar
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="discord">
+              <div className="flex items-center">
+                <i className="ri-discord-line mr-2 text-indigo-500"></i>
+                Discord
+              </div>
+            </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="slack" className="mt-4">
             <Card>
               <CardHeader>
@@ -138,7 +181,7 @@ export function IntegrationDashboard() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h3 className="font-medium text-sm mb-2">Recent Messages</h3>
                       <div className="border rounded-md divide-y">
@@ -147,9 +190,9 @@ export function IntegrationDashboard() {
                             <div className="flex items-start">
                               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
                                 {message.user_info?.profile?.image_24 ? (
-                                  <img 
-                                    src={message.user_info.profile.image_24} 
-                                    alt={message.user_info.name || "User"} 
+                                  <img
+                                    src={message.user_info.profile.image_24}
+                                    alt={message.user_info.name || "User"}
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
@@ -174,21 +217,18 @@ export function IntegrationDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-4">
-                    <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-slack-line text-neutral-400 text-lg"></i>
-                    </div>
-                    <h3 className="font-medium mb-1">No Slack Data Available</h3>
-                    <p className="text-sm text-neutral-500 mb-3">Unable to fetch data from Slack. Check your API connection.</p>
-                    <Button size="sm" onClick={() => refetch()}>
-                      Try Again
-                    </Button>
-                  </div>
+                  <EmptyState
+                    title="No Slack Data Available"
+                    description="Unable to fetch data from Slack. Check your API connection."
+                    icon="ri-slack-line"
+                    actionLabel="Try Again"
+                    onAction={() => refetch()}
+                  />
                 )}
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="notion" className="mt-4">
             <Card>
               <CardHeader>
@@ -216,7 +256,7 @@ export function IntegrationDashboard() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h3 className="font-medium text-sm mb-2">Task List</h3>
                       <div className="border rounded-md divide-y">
@@ -248,21 +288,18 @@ export function IntegrationDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-4">
-                    <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-file-text-line text-neutral-400 text-lg"></i>
-                    </div>
-                    <h3 className="font-medium mb-1">No Notion Tasks Available</h3>
-                    <p className="text-sm text-neutral-500 mb-3">Unable to fetch tasks from Notion. Check your API connection.</p>
-                    <Button size="sm" onClick={() => refetch()}>
-                      Try Again
-                    </Button>
-                  </div>
+                  <EmptyState
+                    title="No Notion Tasks Available"
+                    description="Unable to fetch tasks from Notion. Check your API connection."
+                    icon="ri-file-text-line"
+                    actionLabel="Try Again"
+                    onAction={() => refetch()}
+                  />
                 )}
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="github" className="mt-4">
             <Card>
               <CardHeader>
@@ -290,7 +327,7 @@ export function IntegrationDashboard() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h3 className="font-medium text-sm mb-2">Repository List</h3>
                       <div className="border rounded-md divide-y">
@@ -299,9 +336,9 @@ export function IntegrationDashboard() {
                             <div className="flex items-start">
                               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
                                 {repo.owner && repo.owner.avatar_url ? (
-                                  <img 
-                                    src={repo.owner.avatar_url} 
-                                    alt={repo.owner.login || "Owner"} 
+                                  <img
+                                    src={repo.owner.avatar_url}
+                                    alt={repo.owner.login || "Owner"}
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
@@ -340,20 +377,133 @@ export function IntegrationDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-4">
-                    <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-github-line text-neutral-400 text-lg"></i>
-                    </div>
-                    <h3 className="font-medium mb-1">No GitHub Data Available</h3>
-                    <p className="text-sm text-neutral-500 mb-3">Unable to fetch data from GitHub. Check your API connection.</p>
-                    <Button size="sm" onClick={() => refetch()}>
-                      Try Again
-                    </Button>
-                  </div>
+                  <EmptyState
+                    title="No GitHub Data Available"
+                    description="Unable to fetch data from GitHub. Check your API connection."
+                    icon="ri-github-line"
+                    actionLabel="Try Again"
+                    onAction={() => refetch()}
+                  />
                 )}
               </CardContent>
             </Card>
           </TabsContent>
+
+
+          {/* GMAIL TAB */}
+          <TabsContent value="gmail" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <i className="ri-mail-fill text-red-500 mr-2"></i>
+                  Gmail Inbox
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : dashboardData?.data?.gmail?.profile ? (
+                  <div className="space-y-4">
+                    <div className="bg-red-50 p-3 rounded-md flex justify-between items-center">
+                      <div>
+                        <h3 className="font-medium">{dashboardData.data.gmail.profile.emailAddress}</h3>
+                        <p className="text-sm text-neutral-600">Total Messages: {dashboardData.data.gmail.profile.messagesTotal}</p>
+                      </div>
+                    </div>
+                    <div className="border rounded-md divide-y">
+                      {dashboardData.data.gmail.inbox?.messages?.map((msg: any, i: number) => (
+                        <div key={i} className="p-3">
+                          <h4 className="font-medium text-sm">{msg.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || 'No Subject'}</h4>
+                          <p className="text-xs text-neutral-500 truncate">{msg.snippet}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState title="No Gmail Data" description="Connect Gmail to see your emails." icon="ri-mail-line" />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* CALENDAR TAB */}
+          <TabsContent value="gcal" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <i className="ri-calendar-fill text-blue-500 mr-2"></i>
+                  Upcoming Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : dashboardData?.data?.gcal?.events ? (
+                  <div className="space-y-2">
+                    {dashboardData.data.gcal.events.items?.map((evt: any, i: number) => (
+                      <div key={i} className="border p-3 rounded-md flex justify-between items-center">
+                        <div>
+                          <h4 className="font-medium">{evt.summary}</h4>
+                          <p className="text-xs text-neutral-500">
+                            {evt.start?.dateTime ? new Date(evt.start.dateTime).toLocaleString() : 'All Day'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {(!dashboardData.data.gcal.events.items || dashboardData.data.gcal.events.items.length === 0) && (
+                      <p className="text-center text-neutral-500 py-4">No upcoming events found.</p>
+                    )}
+                  </div>
+                ) : (
+                  <EmptyState title="No Calendar Data" description="Connect Google Calendar to see events." icon="ri-calendar-line" />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DISCORD TAB */}
+          <TabsContent value="discord" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <i className="ri-discord-fill text-indigo-500 mr-2"></i>
+                  Discord Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : dashboardData?.data?.discord?.userInfo ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center bg-indigo-50 p-4 rounded-md">
+                      <div className="w-12 h-12 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xl">
+                        {dashboardData.data.discord.userInfo.username[0]}
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="font-bold text-lg">{dashboardData.data.discord.userInfo.username}</h3>
+                        <p className="text-sm text-neutral-600">ID: {dashboardData.data.discord.userInfo.id}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium mb-2">Guilds (Servers)</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {dashboardData.data.discord.guilds?.map((guild: any, i: number) => (
+                          <div key={i} className="border p-2 rounded flex items-center">
+                            <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                            <span className="text-sm truncate">{guild.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState title="No Discord Data" description="Connect Discord to see your profile." icon="ri-discord-line" />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
         </Tabs>
       )}
     </div>
@@ -372,7 +522,7 @@ function SlackLoadingSkeleton() {
           <Skeleton className="h-4 w-36" />
         </div>
       </div>
-      
+
       <div>
         <Skeleton className="h-5 w-32 mb-2" />
         <div className="space-y-3">
@@ -404,7 +554,7 @@ function GitHubLoadingSkeleton() {
         <Skeleton className="h-20 w-full rounded-md" />
         <Skeleton className="h-20 w-full rounded-md" />
       </div>
-      
+
       <Skeleton className="h-5 w-32 mb-2" />
       <div className="space-y-3">
         <RepoSkeleton />
@@ -443,7 +593,7 @@ function NotionLoadingSkeleton() {
         <Skeleton className="h-20 w-full rounded-md" />
         <Skeleton className="h-20 w-full rounded-md" />
       </div>
-      
+
       <Skeleton className="h-5 w-32 mb-2" />
       <div className="space-y-3">
         <TaskSkeleton />

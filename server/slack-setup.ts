@@ -1,16 +1,35 @@
 import { WebClient } from "@slack/web-api";
 
-// Environment variable validation
-if (!process.env.SLACK_BOT_TOKEN) {
-  throw new Error("SLACK_BOT_TOKEN environment variable must be set");
+let slackClient: WebClient | null = null;
+
+export function getSlackOn() {
+  if (!slackClient) {
+    slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
+  }
+  return slackClient;
 }
 
-if (!process.env.SLACK_CHANNEL_ID) {
-  throw new Error("SLACK_CHANNEL_ID environment variable must be set");
+// Proxy for backward compatibility if needed, or better, update consumers to use getSlack()
+export const slack = new Proxy({}, {
+  get: (_target, prop) => {
+    const client = getSlackOn();
+    return client[prop as keyof WebClient];
+  }
+}) as WebClient;
+
+
+export function checkSlackEnv(): boolean {
+  return !!(process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID);
 }
 
-// Initialize the Slack Web API client
-export const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+export async function initSlack() {
+  if (!checkSlackEnv()) {
+    console.warn("Slack environment variables missing. Skipping Slack initialization.");
+    return;
+  }
+  // No strict initialization logic needed for WebClient other than instantiation
+  console.log("Slack integration configured.");
+}
 
 /**
  * Sends a structured message to a Slack channel using the Slack Web API
@@ -21,7 +40,7 @@ export async function sendSlackMessage(message: any): Promise<string | undefined
   try {
     // Default to the configured channel if none specified
     const channel = message.channel || process.env.SLACK_CHANNEL_ID;
-    
+
     // Send the message
     const response = await slack.chat.postMessage({
       ...message,
@@ -117,7 +136,7 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
     } catch (error) {
       console.error('Error getting channel info, using default values:', error);
     }
-    
+
     // Get message history
     let history: any = { messages: [] };
     try {
@@ -125,13 +144,13 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
     } catch (error) {
       console.error('Error getting message history:', error);
     }
-    
+
     // Get all users
     let userMap: Record<string, any> = {};
     try {
       const usersResult = await getAllUsers();
       const users = usersResult.members || [];
-      
+
       // Create user map for easy lookup
       users.forEach(user => {
         if (user.id) {
@@ -152,13 +171,13 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
     } catch (error) {
       // If we can't get users (missing scope), create basic user info from the messages
       console.warn('Could not retrieve users list, possibly missing users:read scope');
-      
+
       // Extract unique user IDs from messages
       const userIds = new Set<string>();
       history.messages?.forEach((msg: any) => {
         if (msg.user) userIds.add(msg.user);
       });
-      
+
       // Create basic user entries
       userIds.forEach(userId => {
         userMap[userId] = {
@@ -168,7 +187,7 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
         };
       });
     }
-    
+
     // Extract messages in a clean format
     const messages = history.messages?.map((msg: any) => ({
       user: msg.user,
@@ -184,7 +203,7 @@ export async function getChannelDataAsDictionary(channel_id: string = process.en
       attachments: msg.attachments,
       is_bot: msg.bot_id ? true : false
     })) || [];
-    
+
     // Create the structured data dictionary
     return {
       channel_info: {

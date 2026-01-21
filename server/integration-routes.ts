@@ -4,6 +4,9 @@ import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
 import { getGitHubClientForConnection } from "./github-client";
 import { getLinearClientForConnection } from "./linear-client";
+import { GmailService } from "./services/google/gmail";
+import { CalendarService } from "./services/google/calendar";
+import { DiscordClient } from "./services/discord/client";
 import { storage } from "./storage";
 
 /**
@@ -12,7 +15,7 @@ import { storage } from "./storage";
  */
 export async function setupIntegrationRoutes(app: Express) {
   console.log("Setting up integration routes...");
-  
+
   // API endpoints discovery endpoint
   app.get("/api/endpoints", async (_req: Request, res: Response) => {
     try {
@@ -112,7 +115,7 @@ export async function setupIntegrationRoutes(app: Express) {
           }
         ]
       };
-      
+
       res.json({
         success: true,
         data: endpoints
@@ -125,23 +128,23 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get slack messages
   app.get("/api/slack/messages", async (req: Request, res: Response) => {
     try {
       // Get channel ID from query params or default to env var
       const channelId = req.query.channelId?.toString() || process.env.SLACK_CHANNEL_ID;
-      
+
       if (!channelId) {
         return res.status(400).json({
           success: false,
           error: "No channel ID provided"
         });
       }
-      
+
       // Get channel history
       const messages = await readSlackHistory(channelId);
-      
+
       // For each message, get user info
       for (const message of messages.messages || []) {
         if (message.user) {
@@ -150,7 +153,7 @@ export async function setupIntegrationRoutes(app: Express) {
             (message as any).user_info = await getUserInfo(message.user);
           } catch (error) {
             console.error(`Error getting user info for ${message.user}:`, error);
-            (message as any).user_info = { 
+            (message as any).user_info = {
               id: message.user,
               name: "Unknown User",
               error: "Failed to fetch user details"
@@ -158,7 +161,7 @@ export async function setupIntegrationRoutes(app: Express) {
           }
         }
       }
-      
+
       res.json({
         success: true,
         data: messages
@@ -171,23 +174,23 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get notion tasks
   app.get("/api/notion/tasks", async (req: Request, res: Response) => {
     try {
       // Get database ID from query params (if available)
       const databaseId = req.query.databaseId?.toString();
-      
+
       if (!databaseId) {
         return res.status(400).json({
           success: false,
           error: "No database ID provided"
         });
       }
-      
+
       // Get tasks from Notion database
       const tasks = await getTasks(databaseId);
-      
+
       res.json({
         success: true,
         data: tasks
@@ -200,24 +203,24 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get GitHub repositories
   app.get("/api/github/repositories", async (req: Request, res: Response) => {
     try {
       // Find the first GitHub connection
       const connections = await storage.getConnections(1); // Using default user ID
       const githubConnection = connections.find(conn => conn.service === 'github');
-      
+
       if (!githubConnection) {
         return res.status(404).json({
           success: false,
           error: "No GitHub connection found"
         });
       }
-      
+
       // Get GitHub client for this connection
       const githubClient = await getGitHubClientForConnection(githubConnection.id);
-      
+
       // Try to get repositories from GitHub App installation first
       let repositories;
       try {
@@ -226,7 +229,7 @@ export async function setupIntegrationRoutes(app: Express) {
         console.log('Falling back to user repositories endpoint');
         repositories = await githubClient.getRepositories();
       }
-      
+
       res.json({
         success: true,
         data: repositories
@@ -239,29 +242,29 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get GitHub repository details
   app.get("/api/github/repositories/:owner/:repo", async (req: Request, res: Response) => {
     try {
       const { owner, repo } = req.params;
-      
+
       // Find the first GitHub connection
       const connections = await storage.getConnections(1); // Using default user ID
       const githubConnection = connections.find(conn => conn.service === 'github');
-      
+
       if (!githubConnection) {
         return res.status(404).json({
           success: false,
           error: "No GitHub connection found"
         });
       }
-      
+
       // Get GitHub client for this connection
       const githubClient = await getGitHubClientForConnection(githubConnection.id);
-      
+
       // Get repository detailed info
       const repositoryData = await githubClient.getRepositoryDataAsDictionary(owner, repo);
-      
+
       res.json({
         success: true,
         data: repositoryData
@@ -274,23 +277,23 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Integration dashboard endpoint that combines data from multiple services
   app.get("/api/integration/dashboard", async (req: Request, res: Response) => {
     try {
       const result: Record<string, any> = {};
       const integrationStatus: Record<string, string> = {};
-      
+
       // Get Slack data if credentials are available
       if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID) {
         try {
           // Get channel info
           const channelInfo = await getChannelInfo();
-          
+
           // Get channel history
           const slackHistoryResponse = await readSlackHistory(process.env.SLACK_CHANNEL_ID);
           const messages = slackHistoryResponse.messages || [];
-          
+
           // Add user info to messages
           for (const message of messages) {
             if (message.user) {
@@ -299,23 +302,23 @@ export async function setupIntegrationRoutes(app: Express) {
                 (message as any).user_info = await getUserInfo(message.user);
               } catch (userError) {
                 console.error(`Error getting user info for ${message.user}:`, userError);
-                (message as any).user_info = { 
+                (message as any).user_info = {
                   id: message.user,
                   name: "Unknown User",
                   is_bot: false
                 };
               }
-              
+
               // Mark bot messages
               (message as any).is_bot = (message as any).user_info?.is_bot || false;
             }
           }
-          
+
           result.slack = {
             channel_info: channelInfo,
             messages
           };
-          
+
           integrationStatus.slack = 'active';
         } catch (slackError: any) {
           console.error("Error fetching Slack data:", slackError);
@@ -325,14 +328,14 @@ export async function setupIntegrationRoutes(app: Express) {
       } else {
         integrationStatus.slack = 'missing_credentials';
       }
-      
+
       // Get Notion data if credentials are available
       if (process.env.NOTION_INTEGRATION_SECRET && process.env.NOTION_PAGE_URL) {
         try {
           // Find the tasks database and get tasks
           // We'll find databases under the main page and look for one with a name containing 'tasks'
           const notionData: any = {};
-          
+
           try {
             // Find and query the tasks database without specifying an ID
             notionData.tasks = await getTasks();
@@ -340,7 +343,7 @@ export async function setupIntegrationRoutes(app: Express) {
             console.error("Error fetching Notion tasks:", tasksError);
             notionData.tasks_error = tasksError.message;
           }
-          
+
           result.notion = notionData;
           integrationStatus.notion = Object.keys(notionData).length > 0 ? 'active' : 'error';
         } catch (notionError: any) {
@@ -351,17 +354,17 @@ export async function setupIntegrationRoutes(app: Express) {
       } else {
         integrationStatus.notion = 'missing_credentials';
       }
-      
+
       // Get GitHub data if GitHub App credentials are available
       if (process.env.GITHUB_APP_ID && process.env.GITHUB_INSTALLATION_ID && process.env.GITHUB_PRIVATE_KEY) {
         try {
           // Find the GitHub connection
           const connections = await storage.getConnections(1); // Using default user ID
           const githubConnection = connections.find(conn => conn.service === 'github');
-          
+
           if (githubConnection) {
             const githubClient = await getGitHubClientForConnection(githubConnection.id);
-            
+
             // Get repositories from the installation
             let repositories = [];
             try {
@@ -375,7 +378,7 @@ export async function setupIntegrationRoutes(app: Express) {
                 console.error("Error fetching user repositories:", userRepoError);
               }
             }
-            
+
             // Get app information
             let appInfo = null;
             try {
@@ -383,12 +386,12 @@ export async function setupIntegrationRoutes(app: Express) {
             } catch (appError) {
               console.error("Error fetching GitHub App info:", appError);
             }
-            
+
             result.github = {
               app_info: appInfo,
               repositories: repositories
             };
-            
+
             integrationStatus.github = repositories.length > 0 ? 'active' : 'error';
           } else {
             integrationStatus.github = 'no_connection';
@@ -403,24 +406,24 @@ export async function setupIntegrationRoutes(app: Express) {
       } else {
         integrationStatus.github = 'missing_credentials';
       }
-      
+
       // Get Linear data if credentials are available
       if (process.env.LINEAR_API_KEY) {
         try {
           // Find the first Linear connection
           const connections = await storage.getConnections(1); // Using default user ID
           const linearConnection = connections.find(conn => conn.service === 'linear');
-          
+
           if (linearConnection) {
             // Get Linear client for this connection
             const linearClient = await getLinearClientForConnection(linearConnection.id);
-            
+
             // Get teams information
             const teams = await linearClient.getTeams();
-            
+
             // Get workflow states
             const workflowStates = await linearClient.getWorkflowStates();
-            
+
             // Get issues for the first team (if available)
             let firstTeamIssues = [];
             if (teams.length > 0) {
@@ -430,7 +433,7 @@ export async function setupIntegrationRoutes(app: Express) {
                 console.error(`Error fetching issues for team ${teams[0].name}:`, issuesError);
               }
             }
-            
+
             result.linear = {
               teams: teams.map(team => ({
                 id: team.id,
@@ -442,7 +445,7 @@ export async function setupIntegrationRoutes(app: Express) {
               workflowStates: workflowStates.slice(0, 5),
               sampleIssues: firstTeamIssues.slice(0, 5)
             };
-            
+
             integrationStatus.linear = teams.length > 0 ? 'active' : 'error';
           } else {
             integrationStatus.linear = 'no_connection';
@@ -455,9 +458,62 @@ export async function setupIntegrationRoutes(app: Express) {
       } else {
         integrationStatus.linear = 'missing_credentials';
       }
-      
+
+      // Gmail
+      const gmailConn = (await storage.getConnections(1)).find(c => c.service === 'gmail');
+      if (gmailConn && gmailConn.credentials?.accessToken) {
+        try {
+          const gmailService = new GmailService(gmailConn.credentials.accessToken as string);
+          const profile = await gmailService.getProfile();
+          const inbox = await gmailService.getDesignatedLabel('INBOX');
+          result.gmail = { profile, inbox };
+          integrationStatus.gmail = 'active';
+        } catch (e: any) {
+          console.error("Error fetching Gmail data:", e);
+          result.gmail = { error: e.message };
+          integrationStatus.gmail = 'error';
+        }
+      } else {
+        integrationStatus.gmail = 'no_connection';
+      }
+
+      // Calendar
+      const gcalConn = (await storage.getConnections(1)).find(c => c.service === 'gcal');
+      if (gcalConn && gcalConn.credentials?.accessToken) {
+        try {
+          const calendarService = new CalendarService(gcalConn.credentials.accessToken as string);
+          const events = await calendarService.getUpcomingEvents();
+          result.gcal = { events };
+          integrationStatus.gcal = 'active';
+        } catch (e: any) {
+          console.error("Error fetching Calendar data:", e);
+          result.gcal = { error: e.message };
+          integrationStatus.gcal = 'error';
+        }
+      } else {
+        integrationStatus.gcal = 'no_connection';
+      }
+
+      // Discord
+      const discordConn = (await storage.getConnections(1)).find(c => c.service === 'discord');
+      if (discordConn && discordConn.credentials?.token) {
+        try {
+          const discordClient = new DiscordClient(discordConn.credentials.token as string);
+          const userInfo = await discordClient.getUserInfo();
+          const guilds = await discordClient.getGuilds();
+          result.discord = { userInfo, guilds };
+          integrationStatus.discord = 'active';
+        } catch (e: any) {
+          console.error("Error fetching Discord data:", e);
+          result.discord = { error: e.message };
+          integrationStatus.discord = 'error';
+        }
+      } else {
+        integrationStatus.discord = 'no_connection';
+      }
+
       result.integrationStatus = integrationStatus;
-      
+
       res.json({
         success: true,
         data: result
@@ -470,29 +526,29 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Linear integration routes
-  
+
   // Get Linear teams
   app.get("/api/linear/teams", async (req: Request, res: Response) => {
     try {
       // Find the first Linear connection
       const connections = await storage.getConnections(1); // Using default user ID
       const linearConnection = connections.find(conn => conn.service === 'linear');
-      
+
       if (!linearConnection) {
         return res.status(404).json({
           success: false,
           error: "No Linear connection found"
         });
       }
-      
+
       // Get Linear client for this connection
       const linearClient = await getLinearClientForConnection(linearConnection.id);
-      
+
       // Get teams
       const teams = await linearClient.getTeams();
-      
+
       res.json({
         success: true,
         data: teams
@@ -505,29 +561,29 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get Linear team issues
   app.get("/api/linear/teams/:teamId/issues", async (req: Request, res: Response) => {
     try {
       const { teamId } = req.params;
-      
+
       // Find the first Linear connection
       const connections = await storage.getConnections(1); // Using default user ID
       const linearConnection = connections.find(conn => conn.service === 'linear');
-      
+
       if (!linearConnection) {
         return res.status(404).json({
           success: false,
           error: "No Linear connection found"
         });
       }
-      
+
       // Get Linear client for this connection
       const linearClient = await getLinearClientForConnection(linearConnection.id);
-      
+
       // Get team issues
       const issues = await linearClient.getTeamIssues(teamId);
-      
+
       res.json({
         success: true,
         data: issues
@@ -540,27 +596,27 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get Linear workflow states
   app.get("/api/linear/workflow-states", async (req: Request, res: Response) => {
     try {
       // Find the first Linear connection
       const connections = await storage.getConnections(1); // Using default user ID
       const linearConnection = connections.find(conn => conn.service === 'linear');
-      
+
       if (!linearConnection) {
         return res.status(404).json({
           success: false,
           error: "No Linear connection found"
         });
       }
-      
+
       // Get Linear client for this connection
       const linearClient = await getLinearClientForConnection(linearConnection.id);
-      
+
       // Get workflow states
       const states = await linearClient.getWorkflowStates();
-      
+
       res.json({
         success: true,
         data: states
@@ -573,29 +629,29 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Get team data dictionary (for AI processing)
   app.get("/api/linear/teams/:teamId/data", async (req: Request, res: Response) => {
     try {
       const { teamId } = req.params;
-      
+
       // Find the first Linear connection
       const connections = await storage.getConnections(1); // Using default user ID
       const linearConnection = connections.find(conn => conn.service === 'linear');
-      
+
       if (!linearConnection) {
         return res.status(404).json({
           success: false,
           error: "No Linear connection found"
         });
       }
-      
+
       // Get Linear client for this connection
       const linearClient = await getLinearClientForConnection(linearConnection.id);
-      
+
       // Get team data dictionary
       const data = await linearClient.getTeamDataAsDictionary(teamId);
-      
+
       res.json({
         success: true,
         data: data
@@ -608,12 +664,12 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   // Test Linear connection
   app.get("/api/linear/test-connection", async (_req: Request, res: Response) => {
     try {
       console.log("Testing Linear API connection...");
-      
+
       // Try direct connection with environment variable
       if (process.env.LINEAR_API_KEY) {
         console.log("Testing Linear API key from environment variables...");
@@ -631,9 +687,9 @@ export async function setupIntegrationRoutes(app: Express) {
               }
             }
           );
-          
+
           console.log('Direct Linear API response:', JSON.stringify(response.data));
-          
+
           if (response.data && response.data.data && response.data.data.viewer) {
             return res.json({
               success: true,
@@ -647,7 +703,7 @@ export async function setupIntegrationRoutes(app: Express) {
             message: directError.message,
             response: directError.response?.data || null
           });
-          
+
           // Return the error details to the client for debugging
           return res.status(400).json({
             success: false,
@@ -655,19 +711,19 @@ export async function setupIntegrationRoutes(app: Express) {
             details: {
               message: directError.message,
               data: directError.response?.data || null,
-              apiKeyLastChars: process.env.LINEAR_API_KEY ? 
-                `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` : 
+              apiKeyLastChars: process.env.LINEAR_API_KEY ?
+                `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
                 null
             }
           });
         }
-        
+
         // Try using our client
         const { LinearClient } = await import('./linear-client');
         const client = new LinearClient(process.env.LINEAR_API_KEY);
-        
+
         const result = await client.testConnection();
-        
+
         if (result.success) {
           return res.json({
             success: true,
@@ -679,21 +735,21 @@ export async function setupIntegrationRoutes(app: Express) {
           console.log("Direct API key test failed, trying through connections...");
         }
       }
-      
+
       // Try through connections
       const connections = await storage.getConnections(1);
       const linearConnection = connections.find(conn => conn.service === 'linear');
-      
+
       if (!linearConnection) {
         return res.status(404).json({
           success: false,
           error: "No Linear connection found"
         });
       }
-      
+
       const linearClient = await getLinearClientForConnection(linearConnection.id);
       const connectionTest = await linearClient.testConnection();
-      
+
       if (connectionTest.success) {
         return res.json({
           success: true,
@@ -707,8 +763,8 @@ export async function setupIntegrationRoutes(app: Express) {
           error: connectionTest.error || "Failed to connect to Linear API",
           source: "connection",
           details: {
-            apiKeyLastChars: process.env.LINEAR_API_KEY ? 
-              `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` : 
+            apiKeyLastChars: process.env.LINEAR_API_KEY ?
+              `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
               null
           }
         });
@@ -721,6 +777,6 @@ export async function setupIntegrationRoutes(app: Express) {
       });
     }
   });
-  
+
   console.log("Integration routes set up successfully");
 }
