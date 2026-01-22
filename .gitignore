@@ -5,4 +5,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
-.ideaserver/local-credentials.json
+.idea
+server/local-credentials.json
+.vscode
