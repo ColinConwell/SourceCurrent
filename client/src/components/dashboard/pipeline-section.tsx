@@ -16,19 +16,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function PipelineSection() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { toast } = useToast();
-  
-  const { 
-    data: pipelines, 
+
+  const {
+    data: pipelines,
     isLoading,
     error
   } = useQuery<Pipeline[]>({
     queryKey: ['/api/pipelines'],
   });
-  
+
   const handleCreatePipeline = () => {
     setShowCreateModal(true);
   };
-  
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -84,7 +84,7 @@ export function PipelineSection() {
                 name={pipeline.name}
                 description={pipeline.description || ''}
                 active={pipeline.active}
-                createdAt={pipeline.createdAt}
+                createdAt={pipeline.createdAt.toString()}
                 sources={getPipelineSources(pipeline)}
               />
             ))
@@ -105,10 +105,10 @@ export function PipelineSection() {
           )}
         </div>
       )}
-      
-      <CreatePipelineModal 
-        isOpen={showCreateModal} 
-        onClose={() => setShowCreateModal(false)} 
+
+      <CreatePipelineModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
       />
     </div>
   );
@@ -131,7 +131,7 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
   const [pipelineType, setPipelineType] = useState("text-analysis");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       toast({
@@ -141,10 +141,10 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
       });
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       await apiRequest('POST', '/api/pipelines', {
         name,
         description,
@@ -154,25 +154,25 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
           services: selectedServices
         }
       });
-      
+
       toast({
         title: "Pipeline created",
         description: `${name} pipeline has been created successfully.`,
       });
-      
+
       queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
       onClose();
     } catch (error) {
       toast({
         title: "Failed to create pipeline",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
@@ -182,30 +182,30 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
             Configure your pipeline to collect and transform data from your connected services.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
           <div>
             <Label htmlFor="pipeline-name">Pipeline Name</Label>
-            <Input 
-              id="pipeline-name" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
+            <Input
+              id="pipeline-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Product Insights Analysis"
               className="mt-1"
             />
           </div>
-          
+
           <div>
             <Label htmlFor="pipeline-description">Description (Optional)</Label>
-            <Input 
-              id="pipeline-description" 
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
+            <Input
+              id="pipeline-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="What this pipeline does..."
               className="mt-1"
             />
           </div>
-          
+
           <div>
             <Label htmlFor="pipeline-type">Pipeline Type</Label>
             <Select value={pipelineType} onValueChange={setPipelineType}>
@@ -220,17 +220,17 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div>
             <Label className="block mb-2">Connect Services</Label>
             <div className="space-y-2">
               <div className="flex items-center">
-                <Checkbox 
-                  id="slack-service" 
-                  checked={selectedServices.slack} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="slack-service"
+                  checked={selectedServices.slack}
+                  onCheckedChange={(checked) =>
                     setSelectedServices(prev => ({ ...prev, slack: !!checked }))
-                  } 
+                  }
                 />
                 <Label htmlFor="slack-service" className="ml-2 font-normal">
                   <span className="inline-flex items-center">
@@ -240,12 +240,12 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
                 </Label>
               </div>
               <div className="flex items-center">
-                <Checkbox 
-                  id="notion-service" 
-                  checked={selectedServices.notion} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="notion-service"
+                  checked={selectedServices.notion}
+                  onCheckedChange={(checked) =>
                     setSelectedServices(prev => ({ ...prev, notion: !!checked }))
-                  } 
+                  }
                 />
                 <Label htmlFor="notion-service" className="ml-2 font-normal">
                   <span className="inline-flex items-center">
@@ -255,12 +255,12 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
                 </Label>
               </div>
               <div className="flex items-center">
-                <Checkbox 
-                  id="linear-service" 
-                  checked={selectedServices.linear} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="linear-service"
+                  checked={selectedServices.linear}
+                  onCheckedChange={(checked) =>
                     setSelectedServices(prev => ({ ...prev, linear: !!checked }))
-                  } 
+                  }
                 />
                 <Label htmlFor="linear-service" className="ml-2 font-normal">
                   <span className="inline-flex items-center">
@@ -270,12 +270,12 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
                 </Label>
               </div>
               <div className="flex items-center">
-                <Checkbox 
-                  id="gdrive-service" 
-                  checked={selectedServices.gdrive} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="gdrive-service"
+                  checked={selectedServices.gdrive}
+                  onCheckedChange={(checked) =>
                     setSelectedServices(prev => ({ ...prev, gdrive: !!checked }))
-                  } 
+                  }
                 />
                 <Label htmlFor="gdrive-service" className="ml-2 font-normal">
                   <span className="inline-flex items-center">
@@ -287,7 +287,7 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
             </div>
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={isLoading}>
@@ -310,24 +310,24 @@ function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
 function getPipelineSources(pipeline: Pipeline): { service: string; name: string; color: string }[] {
   const config = pipeline.config as { services?: Record<string, boolean> } | undefined;
   if (!config?.services) return [];
-  
+
   const sources: { service: string; name: string; color: string }[] = [];
-  
+
   if (config.services.slack) {
     sources.push({ service: 'slack', name: 'Slack', color: '#4A154B' });
   }
-  
+
   if (config.services.notion) {
     sources.push({ service: 'notion', name: 'Notion', color: '#000000' });
   }
-  
+
   if (config.services.linear) {
     sources.push({ service: 'linear', name: 'Linear', color: '#5E6AD2' });
   }
-  
+
   if (config.services.gdrive) {
     sources.push({ service: 'gdrive', name: 'Google Drive', color: '#0F9D58' });
   }
-  
+
   return sources;
 }

@@ -96,50 +96,50 @@ interface TreeViewProps {
 
 function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: TreeViewProps) {
   const [isExpanded, setIsExpanded] = React.useState(expandedByDefault);
-  
+
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
-  
+
   // For primitive values
   if (data === null) {
     return <span className="text-gray-500">null</span>;
   }
-  
+
   if (data === undefined) {
     return <span className="text-gray-500">undefined</span>;
   }
-  
+
   if (typeof data === "string") {
     return <span className={isKey ? "text-red-600" : "text-green-600"}>"{data}"</span>;
   }
-  
+
   if (typeof data === "number") {
     return <span className="text-blue-600">{data}</span>;
   }
-  
+
   if (typeof data === "boolean") {
     return <span className="text-blue-600">{String(data)}</span>;
   }
-  
+
   // For objects and arrays
   const isArray = Array.isArray(data);
   const isEmpty = isArray ? data.length === 0 : Object.keys(data).length === 0;
-  
+
   // For empty collections
   if (isEmpty) {
     return <span className="text-gray-600">{isArray ? "[]" : "{}"}</span>;
   }
-  
+
   const keys = isArray ? Array.from({ length: data.length }, (_, i) => i) : Object.keys(data);
   const openBracket = isArray ? "[" : "{";
   const closeBracket = isArray ? "]" : "}";
-  
+
   const indentSize = 2;
   const indent = " ".repeat(indentSize * level);
   const childIndent = " ".repeat(indentSize * (level + 1));
-  
+
   // If collapsed, show a compact summary
   if (!isExpanded) {
     return (
@@ -147,7 +147,7 @@ function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: 
         <span className="cursor-pointer text-gray-500" onClick={toggleExpand}>▶ </span>
         <span className="text-gray-600">{openBracket}</span>
         <span className="text-gray-400 ml-1">
-          {isArray 
+          {isArray
             ? (keys.length === 1 ? "1 item" : `${keys.length} items`)
             : (keys.length === 1 ? "1 property" : `${keys.length} properties`)
           }
@@ -156,7 +156,7 @@ function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: 
       </span>
     );
   }
-  
+
   // Full expanded view, JSON style
   return (
     <div className="font-mono whitespace-pre">
@@ -168,25 +168,25 @@ function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: 
         {keys.map((key, index) => {
           const actualKey = isArray ? Number(key) : key;
           // For arrays with Object/Array values, show a collapsed preview
-          if (isArray && typeof data[actualKey] === 'object' && data[actualKey] !== null) {
-            const objectData = data[actualKey];
+          if (isArray && typeof data[actualKey as any] === 'object' && data[actualKey as any] !== null) {
+            const objectData = data[actualKey as any];
             const itemCount = Array.isArray(objectData) ? objectData.length : Object.keys(objectData).length;
             const itemType = Array.isArray(objectData) ? "items" : "properties";
-            
+
             return (
               <div key={`idx-${index}`} className="pl-4">
                 <span className="text-gray-500">{key}</span>
                 <span className="text-gray-600">: </span>
-                <TreeView 
-                  data={objectData} 
-                  level={level + 1} 
+                <TreeView
+                  data={objectData}
+                  level={level + 1}
                   expandedByDefault={false}
                 />
                 {index < keys.length - 1 && <span className="text-gray-600">,</span>}
               </div>
             );
           }
-          
+
           // Normal object properties or primitive array items
           const itemValue = data[actualKey];
           return (
@@ -196,9 +196,9 @@ function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: 
                 <>
                   <span className="text-gray-500">{key}</span>
                   <span className="text-gray-600">: </span>
-                  <TreeView 
-                    data={itemValue} 
-                    level={level + 1} 
+                  <TreeView
+                    data={itemValue}
+                    level={level + 1}
                     expandedByDefault={level < 1}
                   />
                 </>
@@ -207,9 +207,9 @@ function TreeView({ data, level = 0, expandedByDefault = true, isKey = false }: 
                 <>
                   <span className="text-red-600">"{key}"</span>
                   <span className="text-gray-600">: </span>
-                  <TreeView 
-                    data={itemValue} 
-                    level={level + 1} 
+                  <TreeView
+                    data={itemValue}
+                    level={level + 1}
                     expandedByDefault={level < 1}
                   />
                 </>

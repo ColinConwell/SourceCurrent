@@ -18,12 +18,12 @@ interface ConnectionModalProps {
   onClose: () => void;
 }
 
-export function ConnectionModal({ 
-  connectionId, 
-  service, 
-  initialName = "", 
-  isOpen, 
-  onClose 
+export function ConnectionModal({
+  connectionId,
+  service,
+  initialName = "",
+  isOpen,
+  onClose
 }: ConnectionModalProps) {
   const [name, setName] = useState(initialName);
   const [workspace, setWorkspace] = useState("Company Workspace");
@@ -35,25 +35,25 @@ export function ConnectionModal({
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
+
   const serviceInfo = serviceTypes.find(s => s.id === service) || {
     id: service,
     name: service.charAt(0).toUpperCase() + service.slice(1),
     icon: "ri-link",
     color: "#4B5563"
   };
-  
+
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
-      
+
       if (connectionId) {
         // Update existing connection
         await apiRequest('PATCH', `/api/connections/${connectionId}`, {
           name,
           config: { workspace, syncSchedule, dataAccess }
         });
-        
+
         toast({
           title: "Connection updated",
           description: `${name} connection has been updated.`,
@@ -72,26 +72,26 @@ export function ConnectionModal({
           },
           config: { workspace, syncSchedule, dataAccess }
         });
-        
+
         toast({
           title: "Connection created",
           description: `${name} connection has been added.`,
         });
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
       onClose();
     } catch (error) {
       toast({
         title: "Failed to save connection",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
@@ -108,19 +108,19 @@ export function ConnectionModal({
             </div>
           </div>
         </DialogHeader>
-        
+
         <div className="mt-4 space-y-4">
           <div>
             <Label htmlFor="connection-name">Connection Name</Label>
-            <Input 
-              id="connection-name" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
+            <Input
+              id="connection-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder={`My ${serviceInfo.name} Connection`}
               className="mt-1"
             />
           </div>
-          
+
           <div>
             <Label htmlFor="workspace">Workspace</Label>
             <Select value={workspace} onValueChange={setWorkspace}>
@@ -134,19 +134,19 @@ export function ConnectionModal({
               </SelectContent>
             </Select>
           </div>
-          
+
           <div>
             <Label className="block text-sm font-medium text-neutral-700">
               Data to Access
             </Label>
             <div className="mt-2 space-y-2">
               <div className="flex items-start">
-                <Checkbox 
-                  id="channels" 
-                  checked={dataAccess.channels} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="channels"
+                  checked={dataAccess.channels}
+                  onCheckedChange={(checked) =>
                     setDataAccess(prev => ({ ...prev, channels: !!checked }))
-                  } 
+                  }
                   className="mt-1"
                 />
                 <div className="ml-3">
@@ -155,12 +155,12 @@ export function ConnectionModal({
                 </div>
               </div>
               <div className="flex items-start">
-                <Checkbox 
-                  id="messages" 
-                  checked={dataAccess.messages} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="messages"
+                  checked={dataAccess.messages}
+                  onCheckedChange={(checked) =>
                     setDataAccess(prev => ({ ...prev, messages: !!checked }))
-                  } 
+                  }
                   className="mt-1"
                 />
                 <div className="ml-3">
@@ -169,12 +169,12 @@ export function ConnectionModal({
                 </div>
               </div>
               <div className="flex items-start">
-                <Checkbox 
-                  id="users" 
-                  checked={dataAccess.users} 
-                  onCheckedChange={(checked) => 
+                <Checkbox
+                  id="users"
+                  checked={dataAccess.users}
+                  onCheckedChange={(checked) =>
                     setDataAccess(prev => ({ ...prev, users: !!checked }))
-                  } 
+                  }
                   className="mt-1"
                 />
                 <div className="ml-3">
@@ -201,7 +201,7 @@ export function ConnectionModal({
             </Select>
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={isLoading}>

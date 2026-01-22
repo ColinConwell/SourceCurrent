@@ -22,7 +22,7 @@ export function EndpointExplorer() {
   const [showCurl, setShowCurl] = useState(false);
 
   // Get available services info
-  const { data: servicesData } = useQuery({
+  const { data: servicesData } = useQuery<{ data: { availableServices: Record<string, boolean> } }>({
     queryKey: ['/api/environment/services'],
   });
 
@@ -157,33 +157,33 @@ export function EndpointExplorer() {
   // Execute the selected endpoint
   const executeEndpoint = async () => {
     if (!selectedEndpoint) return;
-    
+
     setIsExecuting(true);
     setResultData(null);
-    
+
     try {
       // For endpoints with parameters in the path, we need to handle them
       let endpoint = selectedEndpoint.endpoint;
       let queryParams = {};
-      
+
       // Handle parameters that need to be substituted in the URL path
       if (selectedEndpoint.params && selectedEndpoint.params.length > 0) {
         const missingRequiredParams = selectedEndpoint.params
-          .filter((p: {name: string, required: boolean}) => 
+          .filter((p: { name: string, required: boolean }) =>
             p.required && (!paramValues[p.name] || paramValues[p.name].trim() === '')
           );
-        
+
         if (missingRequiredParams.length > 0) {
           setResultData({
             error: "Missing required parameters",
-            details: `Please provide values for: ${missingRequiredParams.map((p: {name: string}) => p.name).join(', ')}`
+            details: `Please provide values for: ${missingRequiredParams.map((p: { name: string }) => p.name).join(', ')}`
           });
           setIsExecuting(false);
           return;
         }
-        
+
         // Replace path parameters with actual values
-        selectedEndpoint.params.forEach((param: {name: string, type: string}) => {
+        selectedEndpoint.params.forEach((param: { name: string, type: string }) => {
           if (paramValues[param.name]) {
             // If the parameter is part of the URL path
             if (endpoint.includes(`:${param.name}`)) {
@@ -198,9 +198,9 @@ export function EndpointExplorer() {
           }
         });
       }
-      
+
       // Special case handling for endpoints that require additional processing
-      
+
       // GitHub repository details endpoint with parameters
       if (selectedEndpoint.id === "github-repo-details") {
         if (!paramValues.owner || !paramValues.repo) {
@@ -208,7 +208,7 @@ export function EndpointExplorer() {
           endpoint = "/api/github/repositories/facebook/react";
         }
       }
-      
+
       // Linear team issues endpoint with parameters
       if (selectedEndpoint.id === "linear-team-issues") {
         if (!paramValues.teamId) {
@@ -222,7 +222,7 @@ export function EndpointExplorer() {
           }
         }
       }
-      
+
       // Notion tasks endpoint with parameters
       if (selectedEndpoint.id === "notion-tasks") {
         if (!paramValues.databaseId) {
@@ -235,14 +235,14 @@ export function EndpointExplorer() {
           return;
         }
       }
-      
+
       // Execute the API call with any query parameters
       const response = await axios.get(endpoint, { params: queryParams });
       setResultData(response.data);
     } catch (error: any) {
       console.error("Error executing endpoint:", error);
-      setResultData({ 
-        error: "Failed to execute endpoint", 
+      setResultData({
+        error: "Failed to execute endpoint",
         message: error.message,
         details: error.response?.data || "No additional details available"
       });
@@ -250,7 +250,7 @@ export function EndpointExplorer() {
       setIsExecuting(false);
     }
   };
-  
+
   // Reset the form
   const reset = () => {
     setSelectedEndpoint(null);
@@ -273,7 +273,7 @@ export function EndpointExplorer() {
           <CardTitle>Select Service</CardTitle>
         </CardHeader>
         <CardContent>
-          <ServiceSelector 
+          <ServiceSelector
             selectedService={selectedService}
             onChange={setSelectedService}
             availableServices={availableServices}
@@ -290,7 +290,7 @@ export function EndpointExplorer() {
                 <CardTitle>Endpoints</CardTitle>
               </CardHeader>
               <CardContent>
-                <EndpointList 
+                <EndpointList
                   endpoints={endpoints}
                   selectedEndpoint={selectedEndpoint}
                   onSelect={handleEndpointSelect}
@@ -309,7 +309,7 @@ export function EndpointExplorer() {
                 {selectedEndpoint ? (
                   <div className="space-y-6">
                     <p className="text-sm text-neutral-600">{selectedEndpoint.description}</p>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Badge
                         variant="outline"
@@ -325,7 +325,7 @@ export function EndpointExplorer() {
                       </Badge>
                       <code className="px-2 py-1 bg-neutral-100 rounded text-xs">{selectedEndpoint.endpoint}</code>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-medium">Parameters</div>
                       <Button
@@ -337,7 +337,7 @@ export function EndpointExplorer() {
                         {showCurl ? "Hide CURL" : "Show CURL"}
                       </Button>
                     </div>
-                    
+
                     {showCurl && (
                       <div className="bg-neutral-900 text-neutral-100 p-3 rounded-md overflow-auto">
                         <pre className="text-xs">
@@ -345,7 +345,7 @@ export function EndpointExplorer() {
                         </pre>
                       </div>
                     )}
-                    
+
                     {selectedEndpoint.params && selectedEndpoint.params.length > 0 ? (
                       <div className="space-y-3">
                         {selectedEndpoint.params.map((param: {
@@ -379,7 +379,7 @@ export function EndpointExplorer() {
                         </p>
                       </div>
                     )}
-                    
+
                     <div className="flex justify-end space-x-2">
                       <Button variant="outline" onClick={reset}>Reset</Button>
                       <Button

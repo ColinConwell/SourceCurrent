@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export default function ConfigurationsPage() {
   // Get available services
-  const { data: servicesData } = useQuery({
+  const { data: servicesData } = useQuery<{ data: { availableServices: Record<string, boolean> } }>({
     queryKey: ['/api/environment/services'],
   });
 
@@ -62,21 +62,21 @@ export default function ConfigurationsPage() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="form-checkbox" />
                     <span className="text-sm">Enable email notifications</span>
                   </label>
                 </div>
-                
+
                 <div className="flex justify-end">
                   <Button>Save Changes</Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="integrations" className="space-y-4">
             <Card>
               <CardHeader>
@@ -94,8 +94,8 @@ export default function ConfigurationsPage() {
                         <div>
                           <h3 className="font-medium">Slack</h3>
                           <p className="text-sm text-neutral-500">
-                            {availableServices?.slack 
-                              ? "Connected and active" 
+                            {availableServices?.slack
+                              ? "Connected and active"
                               : "Not configured"}
                           </p>
                         </div>
@@ -124,7 +124,7 @@ export default function ConfigurationsPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Notion Settings */}
                   <div className="border-b pb-4">
                     <div className="flex items-center justify-between mb-4">
@@ -135,8 +135,8 @@ export default function ConfigurationsPage() {
                         <div>
                           <h3 className="font-medium">Notion</h3>
                           <p className="text-sm text-neutral-500">
-                            {availableServices?.notion 
-                              ? "Connected and active" 
+                            {availableServices?.notion
+                              ? "Connected and active"
                               : "Not configured"}
                           </p>
                         </div>
@@ -165,7 +165,7 @@ export default function ConfigurationsPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* GitHub Settings */}
                   <div className="border-b pb-4">
                     <div className="flex items-center justify-between mb-4">
@@ -176,8 +176,8 @@ export default function ConfigurationsPage() {
                         <div>
                           <h3 className="font-medium">GitHub</h3>
                           <p className="text-sm text-neutral-500">
-                            {availableServices?.github 
-                              ? "Connected and active" 
+                            {availableServices?.github
+                              ? "Connected and active"
                               : "Not configured"}
                           </p>
                         </div>
@@ -187,7 +187,7 @@ export default function ConfigurationsPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Linear Settings */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
@@ -198,8 +198,8 @@ export default function ConfigurationsPage() {
                         <div>
                           <h3 className="font-medium">Linear</h3>
                           <p className="text-sm text-neutral-500">
-                            {availableServices?.linear 
-                              ? "Connected and active" 
+                            {availableServices?.linear
+                              ? "Connected and active"
                               : "Not configured"}
                           </p>
                         </div>
@@ -213,7 +213,7 @@ export default function ConfigurationsPage() {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="appearance" className="space-y-4">
             <Card>
               <CardHeader>
@@ -237,7 +237,7 @@ export default function ConfigurationsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-3">Accent Color</h3>
                   <div className="grid grid-cols-6 gap-3">
@@ -267,14 +267,14 @@ export default function ConfigurationsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end">
                   <Button>Save Changes</Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="advanced" className="space-y-4">
             <Card>
               <CardHeader>
@@ -291,7 +291,7 @@ export default function ConfigurationsPage() {
                     <Button variant="outline" size="sm">Manage</Button>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-3">Rate Limiting</h3>
                   <div className="flex items-center justify-between p-3 border rounded-md">
@@ -302,7 +302,7 @@ export default function ConfigurationsPage() {
                     <Button variant="outline" size="sm">Configure</Button>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-3">Danger Zone</h3>
                   <div className="p-3 border border-red-200 bg-red-50 rounded-md">

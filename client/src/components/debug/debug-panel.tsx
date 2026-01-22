@@ -11,11 +11,11 @@ export function DebugPanel() {
     const [isOpen, setIsOpen] = useState(false);
     const queryClient = useQueryClient();
 
-    const { data: envData, isLoading } = useQuery({
+    const { data: envData, isLoading } = useQuery<{ data: { availableServices: Record<string, boolean> } }>({
         queryKey: ['/api/environment/services'],
     });
 
-    const { data: safetyStatus, isLoading: isSafetyLoading } = useQuery({
+    const { data: safetyStatus, isLoading: isSafetyLoading } = useQuery<{ enabled: boolean }>({
         queryKey: ['/api/environment/safety'],
         // This endpoint needs to be created
     });

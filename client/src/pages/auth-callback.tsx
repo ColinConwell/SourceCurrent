@@ -11,12 +11,12 @@ export default function AuthCallback() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   // Extract the authorization code from the URL
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get("code");
   const service = params?.service || "";
-  
+
   useEffect(() => {
     async function processOAuthCallback() {
       if (!code) {
@@ -24,13 +24,13 @@ export default function AuthCallback() {
         setError("No authorization code found in the callback URL");
         return;
       }
-      
+
       try {
         // In a real application, this would exchange the code for tokens
         // and create a connection in the database
         const response = await apiRequest(
-          "POST", 
-          `/api/connections`, 
+          "POST",
+          `/api/connections`,
           {
             service,
             name: `My ${service.charAt(0).toUpperCase() + service.slice(1)} Connection`,
@@ -45,33 +45,33 @@ export default function AuthCallback() {
             }
           }
         );
-        
+
         setStatus("success");
-        
+
         toast({
           title: "Connection successful!",
           description: `Your ${service} account has been connected.`,
         });
-        
+
         // Redirect back to dashboard after a short delay
         setTimeout(() => {
           setLocation("/");
         }, 2000);
       } catch (err) {
         setStatus("error");
-        setError(err.message || "Failed to complete authentication");
-        
+        setError((err as Error).message || "Failed to complete authentication");
+
         toast({
           title: "Authentication failed",
-          description: err.message || "Could not connect to service",
+          description: (err as Error).message || "Could not connect to service",
           variant: "destructive",
         });
       }
     }
-    
+
     processOAuthCallback();
   }, [code, service, setLocation, toast]);
-  
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
       <Card className="w-full max-w-md">
@@ -85,7 +85,7 @@ export default function AuthCallback() {
               </p>
             </div>
           )}
-          
+
           {status === "success" && (
             <div className="text-center py-8">
               <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
@@ -97,7 +97,7 @@ export default function AuthCallback() {
               </p>
             </div>
           )}
-          
+
           {status === "error" && (
             <div className="text-center py-8">
               <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
@@ -110,7 +110,7 @@ export default function AuthCallback() {
             </div>
           )}
         </CardContent>
-        
+
         {status === "error" && (
           <CardFooter className="flex justify-center pb-6">
             <Button onClick={() => setLocation("/")}>

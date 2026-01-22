@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function RecentActivity() {
-  const { 
-    data: activities, 
+  const {
+    data: activities,
     isLoading,
     error
   } = useQuery<Activity[]>({
     queryKey: ['/api/activities', { limit: 10 }],
   });
-  
+
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-4">
@@ -54,7 +54,7 @@ export function RecentActivity() {
 
 function ActivityItem({ activity }: { activity: Activity }) {
   const { icon, iconBg, iconColor } = getActivityInfo(activity.type);
-  
+
   return (
     <li className="p-4">
       <div className="flex items-start">
@@ -66,7 +66,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
             <span className="font-medium">{getActivityTitle(activity)}</span>
             <span className="text-neutral-500">{getActivityDescription(activity)}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-1">{formatActivityTime(activity.createdAt)}</p>
+          <p className="text-xs text-neutral-500 mt-1">{formatActivityTime(activity.createdAt.toString())}</p>
         </div>
       </div>
     </li>
@@ -157,7 +157,7 @@ function formatActivityTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-  
+
   if (diffMinutes < 1) {
     return 'Just now';
   } else if (diffMinutes < 60) {
@@ -168,8 +168,8 @@ function formatActivityTime(dateString: string): string {
   } else if (diffMinutes < 2880) {
     return 'Yesterday';
   } else {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'

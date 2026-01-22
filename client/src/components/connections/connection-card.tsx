@@ -19,21 +19,21 @@ export function ConnectionCard({ id, service, name, description, active }: Conne
   const [isActive, setIsActive] = useState(active);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const { toast } = useToast();
-  
+
   const serviceInfo = serviceTypes.find(s => s.id === service) || {
     id: service,
     name: service.charAt(0).toUpperCase() + service.slice(1),
     icon: "ri-link",
     color: "#4B5563"
   };
-  
+
   const handleToggleActive = async () => {
     try {
       const newState = !isActive;
       await apiRequest('PATCH', `/api/connections/${id}`, { active: newState });
       setIsActive(newState);
       queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
-      
+
       toast({
         title: newState ? "Connection Activated" : "Connection Deactivated",
         description: `${name} connection has been ${newState ? 'activated' : 'deactivated'}.`,
@@ -41,12 +41,12 @@ export function ConnectionCard({ id, service, name, description, active }: Conne
     } catch (error) {
       toast({
         title: "Failed to update connection",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     }
   };
-  
+
   return (
     <>
       <div className={`connection-card bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden ${!isActive ? 'opacity-60' : ''}`}>
@@ -73,7 +73,7 @@ export function ConnectionCard({ id, service, name, description, active }: Conne
               <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-green-500"></span>
               {isActive ? "Active" : "Inactive"}
             </Badge>
-            <button 
+            <button
               className="text-sm text-primary-600 hover:text-primary-700 font-medium"
               onClick={() => setIsConfigOpen(true)}
             >
@@ -82,9 +82,9 @@ export function ConnectionCard({ id, service, name, description, active }: Conne
           </div>
         </div>
       </div>
-      
+
       {isConfigOpen && (
-        <ConnectionModal 
+        <ConnectionModal
           connectionId={id}
           service={service}
           initialName={name}
