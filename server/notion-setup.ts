@@ -6,22 +6,29 @@ export const notion = new Client({
 });
 
 // Extract the page ID from the Notion page URL
-export function extractPageIdFromUrl(pageUrl: string): string {
+export function extractPageIdFromUrl(pageUrl: string | undefined): string | null {
+  if (!pageUrl) {
+    return null;
+  }
   const match = pageUrl.match(/([a-f0-9]{32})(?:[?#]|$)/i);
   if (match && match[1]) {
     return match[1];
   }
-
-  throw Error("Failed to extract page ID");
+  return null;
 }
 
-export const NOTION_PAGE_ID = extractPageIdFromUrl(process.env.NOTION_PAGE_URL!);
+export const NOTION_PAGE_ID = extractPageIdFromUrl(process.env.NOTION_PAGE_URL);
 
 /**
  * Lists all child databases contained within NOTION_PAGE_ID
  * @returns {Promise<Array<{id: string, title: string}>>} - Array of database objects with id and title
  */
 export async function getNotionDatabases() {
+  if (!NOTION_PAGE_ID) {
+    console.warn("NOTION_PAGE_URL not configured - cannot fetch databases");
+    return [];
+  }
+
   // Array to store the child databases
   const childDatabases = [];
 
@@ -89,6 +96,9 @@ export async function findDatabaseByTitle(title: string) {
 
 // Create a new database if one with a matching title does not exist
 export async function createDatabaseIfNotExists(title: string, properties: any) {
+  if (!NOTION_PAGE_ID) {
+    throw new Error("NOTION_PAGE_URL not configured - cannot create database");
+  }
   const existingDb = await findDatabaseByTitle(title);
   if (existingDb) {
     return existingDb;
