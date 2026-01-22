@@ -319,3 +319,14 @@ function findPropertyValueByType(properties: Record<string, any>, type: string) 
 
   return null;
 }
+
+/**
+ * Extract the page ID from a Notion page URL
+ */
+function extractPageIdFromUrl(url: string): string {
+  const match = url.match(/([a-f0-9]{32})(?:[?#]|$)/i);
+  if (match && match[1]) {
+    return match[1];
+  }
+  throw new Error("Invalid Notion page URL format");
+}

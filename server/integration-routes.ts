@@ -435,7 +435,7 @@ export async function setupIntegrationRoutes(app: Express) {
             }
 
             result.linear = {
-              teams: teams.map(team => ({
+              teams: teams.map((team: any) => ({
                 id: team.id,
                 name: team.name,
                 key: team.key,
@@ -461,9 +461,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Gmail
       const gmailConn = (await storage.getConnections(1)).find(c => c.service === 'gmail');
-      if (gmailConn && gmailConn.credentials?.accessToken) {
+      if (gmailConn && (gmailConn.credentials as any)?.accessToken) {
         try {
-          const gmailService = new GmailService(gmailConn.credentials.accessToken as string);
+          const gmailService = new GmailService((gmailConn.credentials as any).accessToken as string);
           const profile = await gmailService.getProfile();
           const inbox = await gmailService.getDesignatedLabel('INBOX');
           result.gmail = { profile, inbox };
@@ -479,9 +479,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Calendar
       const gcalConn = (await storage.getConnections(1)).find(c => c.service === 'gcal');
-      if (gcalConn && gcalConn.credentials?.accessToken) {
+      if (gcalConn && (gcalConn.credentials as any)?.accessToken) {
         try {
-          const calendarService = new CalendarService(gcalConn.credentials.accessToken as string);
+          const calendarService = new CalendarService((gcalConn.credentials as any).accessToken as string);
           const events = await calendarService.getUpcomingEvents();
           result.gcal = { events };
           integrationStatus.gcal = 'active';
@@ -496,9 +496,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Discord
       const discordConn = (await storage.getConnections(1)).find(c => c.service === 'discord');
-      if (discordConn && discordConn.credentials?.token) {
+      if (discordConn && (discordConn.credentials as any)?.token) {
         try {
-          const discordClient = new DiscordClient(discordConn.credentials.token as string);
+          const discordClient = new DiscordClient((discordConn.credentials as any).token as string);
           const userInfo = await discordClient.getUserInfo();
           const guilds = await discordClient.getGuilds();
           result.discord = { userInfo, guilds };

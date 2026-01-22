@@ -121,10 +121,11 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userId++;
-    const now = new Date();
     const user: User = {
       ...insertUser,
-      id
+      id,
+      displayName: insertUser.displayName || null, // Ensure undefined becomes null
+      email: insertUser.email || null // Ensure undefined becomes null
     };
     this.users.set(id, user);
     return user;
@@ -147,6 +148,8 @@ export class MemStorage implements IStorage {
     const newConnection: Connection = {
       ...connection,
       id,
+      active: connection.active ?? true, // Ensure undefined becomes true (default)
+      credentials: connection.credentials ?? {}, // Ensure not undefined (though schema says required, types might differ)
       createdAt: now,
       lastSyncedAt: null
     };
@@ -222,6 +225,7 @@ export class MemStorage implements IStorage {
     const newDataSource: DataSource = {
       ...dataSource,
       id,
+      config: dataSource.config || null, // Ensure undefined becomes null
       createdAt: now
     };
     this.dataSources.set(id, newDataSource);
@@ -286,6 +290,9 @@ export class MemStorage implements IStorage {
     const newPipeline: Pipeline = {
       ...pipeline,
       id,
+      description: pipeline.description || null, // Ensure undefined becomes null
+      active: pipeline.active ?? true, // Ensure undefined becomes true
+      config: pipeline.config || null, // Ensure undefined becomes null
       createdAt: now
     };
     this.pipelines.set(id, newPipeline);
@@ -398,6 +405,7 @@ export class MemStorage implements IStorage {
     const newActivity: Activity = {
       ...activity,
       id,
+      metadata: activity.metadata || null, // Ensure undefined becomes null
       createdAt: now
     };
     this.activities.set(id, newActivity);

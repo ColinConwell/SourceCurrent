@@ -10,27 +10,27 @@ import { storage } from "./storage";
  */
 export async function setupConnectionsFromEnv(): Promise<void> {
   console.log("Checking environment for API credentials...");
-  
+
   const demoUserId = 1; // In a real app, this would be a proper user ID
   const existingConnections = await storage.getConnections(demoUserId);
-  
+
   // Map to track connections by service to avoid duplicates
   const existingConnectionsByService: Record<string, boolean> = {};
   existingConnections.forEach(connection => {
     existingConnectionsByService[connection.service] = true;
   });
-  
+
   // Array to track connections we've added
   const addedConnections: Connection[] = [];
-  
+
   // Available integrations with environment variables
   const availableServices = getAvailableServicesFromEnv();
   console.log(`Available API integrations from environment: ${Object.entries(availableServices)
     .filter(([_, available]) => available)
     .map(([service]) => service)
     .join(', ')}`);
-  
-  
+
+
   // Check for Slack credentials
   if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID && !existingConnectionsByService['slack']) {
     try {
@@ -45,11 +45,11 @@ export async function setupConnectionsFromEnv(): Promise<void> {
         },
         active: true
       };
-      
+
       const newConnection = await storage.createConnection(slackConnection);
       addedConnections.push(newConnection);
       console.log(`✓ Created Slack connection: ${newConnection.name} (ID: ${newConnection.id})`);
-      
+
       // Also create a data source for the default channel
       if (process.env.SLACK_CHANNEL_ID) {
         await storage.createDataSource({
@@ -57,7 +57,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
           name: "Default Slack Channel",
           sourceId: process.env.SLACK_CHANNEL_ID,
           sourceType: "channel",
-          config: { 
+          config: {
             channelName: "default" // This would be retrieved from the API in a real implementation
           }
         });
@@ -67,7 +67,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
       console.error("Failed to create Slack connection:", error);
     }
   }
-  
+
   // Check for Notion credentials
   if (process.env.NOTION_INTEGRATION_SECRET && process.env.NOTION_PAGE_URL && !existingConnectionsByService['notion']) {
     try {
@@ -82,11 +82,11 @@ export async function setupConnectionsFromEnv(): Promise<void> {
         },
         active: true
       };
-      
+
       const newConnection = await storage.createConnection(notionConnection);
       addedConnections.push(newConnection);
       console.log(`✓ Created Notion connection: ${newConnection.name} (ID: ${newConnection.id})`);
-      
+
       // Extract the page ID to use as a data source
       const pageId = extractPageIdFromUrl(process.env.NOTION_PAGE_URL);
       await storage.createDataSource({
@@ -94,8 +94,8 @@ export async function setupConnectionsFromEnv(): Promise<void> {
         name: "Main Notion Page",
         sourceId: pageId,
         sourceType: "page",
-        config: { 
-          pageType: "tasks" 
+        config: {
+          pageType: "tasks"
         }
       });
       console.log(`  ↳ Added data source for main Notion page`);
@@ -103,7 +103,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
       console.error("Failed to create Notion connection:", error);
     }
   }
-  
+
   // Check for GitHub credentials
   if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && !existingConnectionsByService['github']) {
     try {
@@ -118,19 +118,19 @@ export async function setupConnectionsFromEnv(): Promise<void> {
         },
         active: true
       };
-      
+
       const newConnection = await storage.createConnection(githubConnection);
       addedConnections.push(newConnection);
       console.log(`✓ Created GitHub connection: ${newConnection.name} (ID: ${newConnection.id})`);
-      
+
       // Add a data source for repos
       await storage.createDataSource({
         connectionId: newConnection.id,
         name: "GitHub Repositories",
         sourceId: "repos", // Generic identifier for all repos
         sourceType: "repository",
-        config: { 
-          repoType: "all" 
+        config: {
+          repoType: "all"
         }
       });
       console.log(`  ↳ Added data source for GitHub repositories`);
@@ -138,7 +138,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
       console.error("Failed to create GitHub connection:", error);
     }
   }
-  
+
   // Check for Linear credentials
   if (process.env.LINEAR_API_KEY && !existingConnectionsByService['linear']) {
     try {
@@ -152,16 +152,16 @@ export async function setupConnectionsFromEnv(): Promise<void> {
         },
         active: true
       };
-      
+
       const newConnection = await storage.createConnection(linearConnection);
       addedConnections.push(newConnection);
       console.log(`✓ Created Linear connection: ${newConnection.name} (ID: ${newConnection.id})`);
-      
+
       // We'll create team-specific data sources after fetching teams
       try {
         const LinearClient = (await import("./linear-client")).LinearClient;
         const client = new LinearClient(process.env.LINEAR_API_KEY);
-        
+
         // Get teams to create data sources for each
         const teams = await client.getTeams();
         if (teams && teams.length > 0) {
@@ -171,7 +171,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
               name: `${team.name} Team`,
               sourceId: team.id,
               sourceType: "team",
-              schema: {
+              config: {
                 team_key: team.key,
                 team_name: team.name
               }
@@ -185,7 +185,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
             name: "Linear workspace",
             sourceId: "workspace",
             sourceType: "workspace",
-            schema: null
+            config: null
           });
           console.log(`  ↳ Added data source for Linear workspace`);
         }
@@ -197,7 +197,7 @@ export async function setupConnectionsFromEnv(): Promise<void> {
           name: "Linear workspace",
           sourceId: "workspace",
           sourceType: "workspace",
-          schema: null
+          config: null
         });
         console.log(`  ↳ Added data source for Linear workspace`);
       }
@@ -205,10 +205,10 @@ export async function setupConnectionsFromEnv(): Promise<void> {
       console.error("Failed to create Linear connection:", error);
     }
   }
-  
+
   // Check for other services (Google Drive, etc.)
   // We can add similar checks for other services as needed
-  
+
   if (addedConnections.length > 0) {
     console.log(`Auto-setup complete: ${addedConnections.length} connections created from environment variables.`);
   } else {

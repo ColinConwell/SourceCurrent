@@ -11,7 +11,7 @@ export class LinearClient {
   private async executeQuery(query: string, variables: Record<string, any> = {}) {
     try {
       console.log('Linear API Query:', { query, variables });
-      
+
       const response = await axios.post(
         this.baseUrl,
         { query, variables },
@@ -38,7 +38,7 @@ export class LinearClient {
           statusText: error.response.statusText,
           data: JSON.stringify(error.response.data)
         });
-        
+
         // Log detailed error information if available
         if (error.response.data && error.response.data.errors) {
           console.error('Linear GraphQL Errors:', JSON.stringify(error.response.data.errors));
@@ -73,7 +73,7 @@ export class LinearClient {
       return null;
     }
   }
-  
+
   // Test method to check basic API connection
   async testConnection() {
     try {
@@ -186,11 +186,11 @@ export class LinearClient {
     `;
 
     const data = await this.executeQuery(query, { teamId });
-    
+
     if (!data.team) {
       throw new Error(`Team with ID ${teamId} not found`);
     }
-    
+
     return data.team.issues.nodes;
   }
 
@@ -221,7 +221,7 @@ export class LinearClient {
   async getTeamDataAsDictionary(teamId: string) {
     try {
       // Get team details
-      const team = (await this.getTeams()).find(t => t.id === teamId);
+      const team = (await this.getTeams()).find((t: any) => t.id === teamId);
       if (!team) {
         throw new Error(`Team with ID ${teamId} not found`);
       }
@@ -231,7 +231,7 @@ export class LinearClient {
 
       // Get all workflow states
       const states = await this.getWorkflowStates();
-      const teamStates = states.filter(state => state.team?.id === teamId);
+      const teamStates = states.filter((state: any) => state.team?.id === teamId);
 
       // Prepare the team data in a structured dictionary format
       const teamData = {
@@ -240,13 +240,13 @@ export class LinearClient {
         key: team.key,
         description: team.description,
         color: team.color,
-        states: teamStates.map(state => ({
+        states: teamStates.map((state: any) => ({
           id: state.id,
           name: state.name,
           type: state.type,
           color: state.color
         })),
-        issues: issues.map(issue => ({
+        issues: issues.map((issue: any) => ({
           id: issue.id,
           identifier: issue.identifier,
           title: issue.title,
@@ -291,24 +291,24 @@ export async function getLinearClientForConnection(connectionId: number): Promis
   try {
     // Import storage here to avoid circular dependency
     const { storage } = await import('./storage');
-    
+
     // Get the connection details
     const connection = await storage.getConnection(connectionId);
-    
+
     if (!connection) {
       throw new Error(`Connection with ID ${connectionId} not found`);
     }
-    
+
     if (connection.service !== 'linear') {
       throw new Error(`Connection with ID ${connectionId} is not a Linear connection`);
     }
-    
+
     // Create Linear client
-    const apiKey = connection.credentials.api_key;
+    const apiKey = (connection.credentials as any).api_key;
     if (!apiKey) {
       throw new Error('Linear API key not found in connection credentials');
     }
-    
+
     return new LinearClient(apiKey);
   } catch (error: any) {
     console.error('Error creating Linear client:', error.message);
