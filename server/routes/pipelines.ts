@@ -50,7 +50,19 @@ pipelinesRouter.patch('/api/pipelines/:id', async (req, res) => {
             return res.status(404).json({ message: "Pipeline not found" });
         }
 
-        const updates = req.body;
+        // Only allow updating specific safe fields
+        const allowedFields = ['name', 'description', 'active', 'config'];
+        const updates: Record<string, any> = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: "No valid fields to update" });
+        }
+
         const updatedPipeline = await storage.updatePipeline(pipelineId, updates);
 
         res.json(updatedPipeline);

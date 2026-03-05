@@ -239,11 +239,16 @@ export function checkEnvForService(service: string): boolean {
     case 'linear':
       return !!process.env.LINEAR_API_KEY;
     case 'github':
-      // Check for OAuth credentials
-      return !!process.env.GITHUB_CLIENT_ID && !!process.env.GITHUB_CLIENT_SECRET;
+      return !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) ||
+             !!(process.env.GITHUB_APP_ID && process.env.GITHUB_INSTALLATION_ID && process.env.GITHUB_PRIVATE_KEY);
+    case 'gmail':
+    case 'gcal':
+      // These use Google OAuth - available if Google credentials are configured
+      return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+    case 'discord':
+      return !!process.env.DISCORD_CLIENT_ID;
     case 'gdrive':
-      // Google Drive typically needs more complex OAuth setup
-      return false;
+      return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
     default:
       return false;
   }
@@ -259,6 +264,9 @@ export function getAvailableServicesFromEnv(): Record<string, boolean> {
     notion: checkEnvForService('notion'),
     github: checkEnvForService('github'),
     linear: checkEnvForService('linear'),
+    gmail: checkEnvForService('gmail'),
+    gcal: checkEnvForService('gcal'),
+    discord: checkEnvForService('discord'),
     gdrive: checkEnvForService('gdrive')
   };
 }

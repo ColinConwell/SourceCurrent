@@ -50,7 +50,19 @@ connectionsRouter.patch('/api/connections/:id', async (req, res) => {
             return res.status(404).json({ message: "Connection not found" });
         }
 
-        const updates = req.body;
+        // Only allow updating specific safe fields
+        const allowedFields = ['name', 'active', 'credentials'];
+        const updates: Record<string, any> = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: "No valid fields to update" });
+        }
+
         const updatedConnection = await storage.updateConnection(connectionId, updates);
 
         if (req.user) try { connectionCache.invalidate(req.user.id); } catch (e) { }
