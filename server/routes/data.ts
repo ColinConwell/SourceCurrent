@@ -5,6 +5,7 @@ import { getSlackClientForConnection } from "../slack-client";
 import { getNotionClientForConnection } from "../notion-client";
 import { getLinearClientForConnection } from "../linear-client";
 import { getGDriveClientForConnection } from "../gdrive-client";
+import { sendError } from "../utils/errors";
 
 export const dataRouter = Router();
 
@@ -14,17 +15,21 @@ dataRouter.get('/api/connections/:connectionId/data', async (req, res) => {
         const sourceId = req.query.sourceId as string;
 
         if (isNaN(connectionId)) {
-            return res.status(400).json({ message: "Invalid connection ID" });
+            return sendError(res, 400, "Invalid connection ID");
+        }
+
+        if (!sourceId) {
+            return sendError(res, 400, "sourceId query parameter is required");
         }
 
         const connection = await storage.getConnection(connectionId);
 
         if (!connection) {
-            return res.status(404).json({ message: "Connection not found" });
+            return sendError(res, 404, "Connection not found");
         }
 
         if (!connection.active) {
-            return res.status(400).json({ message: "Connection is not active" });
+            return sendError(res, 400, "Connection is not active");
         }
 
         let data;
@@ -51,7 +56,7 @@ dataRouter.get('/api/connections/:connectionId/data', async (req, res) => {
                 break;
 
             default:
-                return res.status(400).json({ message: `Unsupported service: ${connection.service}` });
+                return sendError(res, 400, `Unsupported service: ${connection.service}`);
         }
 
         // Update last synced time
@@ -66,8 +71,7 @@ dataRouter.get('/api/connections/:connectionId/data', async (req, res) => {
         });
 
         res.json(data);
-    } catch (error: any) {
-        console.error('Error fetching data:', error);
-        res.status(500).json({ message: `Failed to fetch data: ${error.message}` });
+    } catch (error) {
+        sendError(res, 500, "Failed to fetch data", error);
     }
 });

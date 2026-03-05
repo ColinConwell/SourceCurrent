@@ -1,18 +1,23 @@
 
 import { Router } from "express";
 import { storage } from "../storage";
+import { sendError } from "../utils/errors";
 
 export const activitiesRouter = Router();
 
 activitiesRouter.get('/api/activities', async (req, res) => {
     try {
-        // For demo, use a fixed user ID
-        const userId = 1;
-        const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+        const userId = req.user!.id;
+        const limitParam = req.query.limit;
+        const limit = limitParam ? parseInt(limitParam as string) : undefined;
+
+        if (limitParam && (isNaN(limit!) || limit! < 1)) {
+            return sendError(res, 400, "Invalid limit parameter - must be a positive integer");
+        }
 
         const activities = await storage.getActivities(userId, limit);
         res.json(activities);
     } catch (error) {
-        res.status(500).json({ message: "Failed to get activities" });
+        sendError(res, 500, "Failed to get activities", error);
     }
 });

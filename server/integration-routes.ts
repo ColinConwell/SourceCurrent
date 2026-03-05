@@ -10,6 +10,7 @@ import { CalendarService } from "./services/google/calendar";
 import { DiscordClient } from "./services/discord/client";
 import { storage } from "./storage";
 import type { Connection } from "../shared/schema";
+import { getCredential } from "./utils/credentials";
 
 /**
  * Helper to find a connection by service for the current user.
@@ -536,9 +537,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Gmail
       const gmailConn = await findConnectionByService('gmail');
-      if (gmailConn && (gmailConn.credentials as any)?.accessToken) {
+      if (gmailConn && getCredential(gmailConn.credentials, 'accessToken')) {
         try {
-          const gmailService = new GmailService((gmailConn.credentials as any).accessToken as string);
+          const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
           const profile = await gmailService.getProfile();
           const inbox = await gmailService.getDesignatedLabel('INBOX');
           result.gmail = { profile, inbox };
@@ -554,9 +555,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Calendar
       const gcalConn = await findConnectionByService('gcal');
-      if (gcalConn && (gcalConn.credentials as any)?.accessToken) {
+      if (gcalConn && getCredential(gcalConn.credentials, 'accessToken')) {
         try {
-          const calendarService = new CalendarService((gcalConn.credentials as any).accessToken as string);
+          const calendarService = new CalendarService(getCredential(gcalConn.credentials, 'accessToken')!);
           const events = await calendarService.getUpcomingEvents();
           result.gcal = { events };
           integrationStatus.gcal = 'active';
@@ -571,9 +572,9 @@ export async function setupIntegrationRoutes(app: Express) {
 
       // Discord
       const discordConn = await findConnectionByService('discord');
-      if (discordConn && (discordConn.credentials as any)?.token) {
+      if (discordConn && getCredential(discordConn.credentials, 'token')) {
         try {
-          const discordClient = new DiscordClient((discordConn.credentials as any).token as string);
+          const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
           const userInfo = await discordClient.getUserInfo();
           const guilds = await discordClient.getGuilds();
           result.discord = { userInfo, guilds };
@@ -778,9 +779,8 @@ export async function setupIntegrationRoutes(app: Express) {
             details: {
               message: directError.message,
               data: directError.response?.data || null,
-              apiKeyLastChars: process.env.LINEAR_API_KEY ?
-                `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
-                null
+              apiKeyConfigured: !!process.env.LINEAR_API_KEY,
+              apiKeyLength: process.env.LINEAR_API_KEY?.length || 0
             }
           });
         }
@@ -830,9 +830,8 @@ export async function setupIntegrationRoutes(app: Express) {
           error: connectionTest.error || "Failed to connect to Linear API",
           source: "connection",
           details: {
-            apiKeyLastChars: process.env.LINEAR_API_KEY ?
-              `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
-              null
+            apiKeyConfigured: !!process.env.LINEAR_API_KEY,
+            apiKeyLength: process.env.LINEAR_API_KEY?.length || 0
           }
         });
       }
@@ -852,10 +851,10 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/gmail/profile", async (_req: Request, res: Response) => {
     try {
       const gmailConn = await findConnectionByService('gmail');
-      if (!gmailConn || !(gmailConn.credentials as any)?.accessToken) {
+      if (!gmailConn || !getCredential(gmailConn.credentials, 'accessToken')) {
         return res.status(404).json({ success: false, error: "No Gmail connection found" });
       }
-      const gmailService = new GmailService((gmailConn.credentials as any).accessToken as string);
+      const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
       const profile = await gmailService.getProfile();
       res.json({ success: true, data: profile });
     } catch (error: any) {
@@ -867,10 +866,10 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/gmail/messages", async (req: Request, res: Response) => {
     try {
       const gmailConn = await findConnectionByService('gmail');
-      if (!gmailConn || !(gmailConn.credentials as any)?.accessToken) {
+      if (!gmailConn || !getCredential(gmailConn.credentials, 'accessToken')) {
         return res.status(404).json({ success: false, error: "No Gmail connection found" });
       }
-      const gmailService = new GmailService((gmailConn.credentials as any).accessToken as string);
+      const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
       const label = (req.query.label as string) || 'INBOX';
       const validLabels = ['INBOX', 'SENT', 'TRASH'] as const;
       const selectedLabel = validLabels.includes(label as any) ? label as 'INBOX' | 'SENT' | 'TRASH' : 'INBOX';
@@ -889,10 +888,10 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/gcal/events", async (_req: Request, res: Response) => {
     try {
       const gcalConn = await findConnectionByService('gcal');
-      if (!gcalConn || !(gcalConn.credentials as any)?.accessToken) {
+      if (!gcalConn || !getCredential(gcalConn.credentials, 'accessToken')) {
         return res.status(404).json({ success: false, error: "No Google Calendar connection found" });
       }
-      const calendarService = new CalendarService((gcalConn.credentials as any).accessToken as string);
+      const calendarService = new CalendarService(getCredential(gcalConn.credentials, 'accessToken')!);
       const events = await calendarService.getUpcomingEvents();
       res.json({ success: true, data: events });
     } catch (error: any) {
@@ -908,10 +907,10 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/discord/user", async (_req: Request, res: Response) => {
     try {
       const discordConn = await findConnectionByService('discord');
-      if (!discordConn || !(discordConn.credentials as any)?.token) {
+      if (!discordConn || !getCredential(discordConn.credentials, 'token')) {
         return res.status(404).json({ success: false, error: "No Discord connection found" });
       }
-      const discordClient = new DiscordClient((discordConn.credentials as any).token as string);
+      const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
       const userInfo = await discordClient.getUserInfo();
       res.json({ success: true, data: userInfo });
     } catch (error: any) {
@@ -923,10 +922,10 @@ export async function setupIntegrationRoutes(app: Express) {
   app.get("/api/discord/guilds", async (_req: Request, res: Response) => {
     try {
       const discordConn = await findConnectionByService('discord');
-      if (!discordConn || !(discordConn.credentials as any)?.token) {
+      if (!discordConn || !getCredential(discordConn.credentials, 'token')) {
         return res.status(404).json({ success: false, error: "No Discord connection found" });
       }
-      const discordClient = new DiscordClient((discordConn.credentials as any).token as string);
+      const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
       const guilds = await discordClient.getGuilds();
       res.json({ success: true, data: guilds });
     } catch (error: any) {

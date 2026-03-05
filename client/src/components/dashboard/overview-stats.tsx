@@ -26,15 +26,16 @@ interface Activity {
 }
 
 export function OverviewStats() {
-  const { data: connections = [], isLoading: connectionsLoading } = useQuery<Connection[]>({
+  const { data: connections = [], isLoading: connectionsLoading, error: connectionsError } = useQuery<Connection[]>({
     queryKey: ['/api/connections'],
   });
-  
-  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
+
+  const { data: activities = [], isLoading: activitiesLoading, error: activitiesError } = useQuery<Activity[]>({
     queryKey: ['/api/activities', { limit: 1 }],
   });
-  
+
   const isLoading = connectionsLoading || activitiesLoading;
+  const hasError = connectionsError || activitiesError;
   
   // Calculate stats based on actual data
   const stats: Stats = {
@@ -69,6 +70,20 @@ export function OverviewStats() {
     }
   ];
   
+  if (hasError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <i className="ri-error-warning-line text-red-500 text-xl mr-3"></i>
+          <div>
+            <h3 className="font-medium text-red-700">Unable to load statistics</h3>
+            <p className="text-sm text-red-600">{connectionsError?.message || activitiesError?.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {statItems.map((item, index) => (

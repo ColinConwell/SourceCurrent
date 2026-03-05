@@ -9,12 +9,23 @@ import { initSlack, checkSlackEnv } from "./slack-setup";
 import { initNotion, checkNotionEnv } from "./notion-setup";
 
 import { safetyModeMiddleware } from "./middleware/safety";
-
 import { authMiddleware } from "./middleware/auth";
+import { rateLimitMiddleware } from "./middleware/rate-limit";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Add request ID for tracing
+app.use((req, res, next) => {
+  const requestId = crypto.randomUUID();
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
+// Apply rate limiting to API routes
+app.use(rateLimitMiddleware());
 // Apply safety mode middleware early to catch destructive requests
 app.use(safetyModeMiddleware);
 // Apply auth middleware to all routes

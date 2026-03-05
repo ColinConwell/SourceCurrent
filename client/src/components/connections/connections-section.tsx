@@ -83,6 +83,14 @@ function getConnectionDescription(service: string): string {
       return 'Access to pages, databases, and blocks.';
     case 'gdrive':
       return 'Access to files, folders and documents.';
+    case 'github':
+      return 'Access to repositories, issues, and pull requests.';
+    case 'gmail':
+      return 'Access to email messages and labels.';
+    case 'gcal':
+      return 'Access to calendar events and schedules.';
+    case 'discord':
+      return 'Access to servers, channels, and user data.';
     default:
       return 'Access to service data.';
   }

@@ -4,9 +4,31 @@ import { storage } from "../storage";
 import { insertUserSchema, InsertConnection } from "../../shared/schema";
 import { z } from "zod";
 import { GoogleAuthService } from "../services/google/auth";
+import { sendError } from "../utils/errors";
 import axios from "axios";
+import crypto from "crypto";
 
 export const authRouter = Router();
+
+/**
+ * Simple password hashing using crypto (avoids adding bcrypt dependency).
+ * Uses PBKDF2 with a random salt.
+ */
+function hashPassword(password: string): string {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, stored: string): boolean {
+    // Support legacy plain-text passwords during migration
+    if (!stored.includes(':')) {
+        return password === stored;
+    }
+    const [salt, hash] = stored.split(':');
+    const testHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return hash === testHash;
+}
 
 // USER ROUTES
 authRouter.post('/api/register', async (req, res) => {
@@ -16,19 +38,25 @@ authRouter.post('/api/register', async (req, res) => {
         // Check if user already exists
         const existingUser = await storage.getUserByUsername(userData.username);
         if (existingUser) {
-            return res.status(409).json({ message: "Username already exists" });
+            return sendError(res, 409, "Username already exists");
         }
 
-        const user = await storage.createUser(userData);
+        // Hash password before storing
+        const hashedUserData = {
+            ...userData,
+            password: hashPassword(userData.password)
+        };
+
+        const user = await storage.createUser(hashedUserData);
 
         // Don't return the password
         const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+            return res.status(400).json({ success: false, error: "Invalid user data", details: error.errors });
         }
-        res.status(500).json({ message: "Failed to create user" });
+        sendError(res, 500, "Failed to create user", error);
     }
 });
 
@@ -37,21 +65,24 @@ authRouter.post('/api/login', async (req, res) => {
         const { username, password } = req.body;
 
         if (!username || !password) {
-            return res.status(400).json({ message: "Username and password are required" });
+            return sendError(res, 400, "Username and password are required");
+        }
+
+        if (typeof username !== 'string' || typeof password !== 'string') {
+            return sendError(res, 400, "Username and password must be strings");
         }
 
         const user = await storage.getUserByUsername(username);
 
-        if (!user || user.password !== password) {
-            return res.status(401).json({ message: "Invalid username or password" });
+        if (!user || !verifyPassword(password, user.password)) {
+            return sendError(res, 401, "Invalid username or password");
         }
 
         // In a real app, you would set up a session or JWT here
-        // For demo, just return the user without the password
         const { password: _, ...userWithoutPassword } = user;
         res.json(userWithoutPassword);
     } catch (error) {
-        res.status(500).json({ message: "Login failed" });
+        sendError(res, 500, "Login failed", error);
     }
 });
 
@@ -59,13 +90,11 @@ authRouter.post('/api/login', async (req, res) => {
 authRouter.get('/api/auth/:service', (req, res) => {
     const service = req.params.service;
 
-    // Create a state parameter to prevent CSRF attacks
-    const state = Math.random().toString(36).substring(2, 15);
+    // Create a cryptographically secure state parameter to prevent CSRF attacks
+    const state = crypto.randomBytes(16).toString('hex');
 
-    // In a real app, this would redirect to the OAuth provider
     switch (service) {
         case 'github':
-            // For GitHub, we'll actually implement the real OAuth flow
             if (process.env.GITHUB_CLIENT_ID) {
                 const scopes = 'repo read:user user:email';
                 const redirectUri = process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`;
@@ -73,7 +102,7 @@ authRouter.get('/api/auth/:service', (req, res) => {
 
                 res.redirect(authUrl);
             } else {
-                res.status(500).json({ message: "GitHub client ID not configured" });
+                sendError(res, 500, "GitHub client ID not configured");
             }
             break;
 
@@ -106,46 +135,44 @@ authRouter.get('/api/auth/:service', (req, res) => {
             break;
 
         case 'gmail':
-        case 'gcal':
-            // Use our helper to generating the URL
+        case 'gcal': {
             const googleServiceType = service === 'gmail' ? 'gmail' : 'calendar';
             const googleRedirectUri = process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/${service}/callback`;
             const googleAuthUrl = GoogleAuthService.getAuthUrl(googleServiceType, googleRedirectUri, state);
             res.redirect(googleAuthUrl);
             break;
+        }
 
-        case 'discord':
+        case 'discord': {
             const discordRedirectUri = process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/discord/callback`;
             const discordScope = 'identify guilds';
             const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID || 'dummy_id'}&redirect_uri=${encodeURIComponent(discordRedirectUri)}&response_type=code&scope=${encodeURIComponent(discordScope)}&state=${state}`;
 
             if (!process.env.DISCORD_CLIENT_ID) {
-                // Mock flow if no client ID
                 res.redirect(`${discordRedirectUri}?code=mock_discord_code&state=${state}`);
             } else {
                 res.redirect(discordAuthUrl);
             }
             break;
+        }
 
         default:
-            res.status(400).json({ message: `Unsupported service: ${service}` });
+            sendError(res, 400, `Unsupported service: ${service}`);
     }
 });
 
 authRouter.get('/api/auth/:service/callback', async (req, res) => {
-    // Handle OAuth callbacks for different services
     const service = req.params.service;
     const code = req.query.code as string;
-    const state = req.query.state as string;
 
     if (!code) {
-        return res.status(400).json({ message: "Missing authorization code" });
+        return sendError(res, 400, "Missing authorization code");
     }
 
-    // For GitHub, implement the full OAuth flow
+    const userId = req.user?.id ?? 1;
+
     if (service === 'github') {
         try {
-            // Exchange the code for an access token
             const tokenResponse = await axios.post(
                 'https://github.com/login/oauth/access_token',
                 {
@@ -155,9 +182,7 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
                     redirect_uri: process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`,
                 },
                 {
-                    headers: {
-                        Accept: 'application/json',
-                    },
+                    headers: { Accept: 'application/json' },
                 }
             );
 
@@ -167,7 +192,6 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
                 throw new Error('Failed to obtain access token');
             }
 
-            // Get user info to create a meaningful connection name
             const userResponse = await axios.get('https://api.github.com/user', {
                 headers: {
                     Authorization: `token ${accessToken}`,
@@ -177,42 +201,31 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
 
             const user = userResponse.data;
 
-            // Create a connection for this GitHub account
             const connection: InsertConnection = {
-                userId: 1, // Demo user
+                userId,
                 name: `${user.name || user.login}'s GitHub`,
                 service: 'github',
-                credentials: {
-                    token: accessToken,
-                },
+                credentials: { token: accessToken },
                 active: true,
             };
 
             const newConnection = await storage.createConnection(connection);
 
-            // Create a data source for repositories
             await storage.createDataSource({
                 connectionId: newConnection.id,
                 name: 'GitHub Repositories',
                 sourceId: 'repos',
                 sourceType: 'repository',
-                config: {
-                    username: user.login,
-                },
+                config: { username: user.login },
             });
 
-            // Create an activity record
             await storage.createActivity({
-                userId: 1,
+                userId,
                 type: 'connection_created',
                 description: `Connected to GitHub as ${user.login}`,
-                metadata: {
-                    service: 'github',
-                    username: user.login,
-                },
+                metadata: { service: 'github', username: user.login },
             });
 
-            // Redirect to the dashboard with success message
             res.redirect('/?github=success');
         } catch (error) {
             console.error('GitHub OAuth error:', error);
@@ -226,9 +239,8 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
 
             const connectionName = `${userProfile.name || userProfile.email}'s ${service === 'gmail' ? 'Gmail' : 'Google Calendar'}`;
 
-            // Create connection
             const connection: InsertConnection = {
-                userId: 1, // Demo user
+                userId,
                 name: connectionName,
                 service: service,
                 credentials: {
@@ -241,9 +253,8 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
 
             await storage.createConnection(connection);
 
-            // Log activity
             await storage.createActivity({
-                userId: 1,
+                userId,
                 type: 'connection_created',
                 description: `Connected to ${service === 'gmail' ? 'Gmail' : 'Google Calendar'} as ${userProfile.email}`,
                 metadata: { service, email: userProfile.email }
@@ -256,18 +267,15 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
         }
     } else if (service === 'discord') {
         try {
-            // Mock token exchange if code is mock
             let accessToken = 'mock_discord_token';
             let discordUser = { username: 'DemoDiscordUser', id: '123' };
 
             if (code !== 'mock_discord_code') {
-                // Real exchange would go here
-                // For now, let's assume if we got a real code we fail properly or mock it
                 console.log('Real Discord exchange not implemented in this demo, using mock.');
             }
 
             const connection: InsertConnection = {
-                userId: 1,
+                userId,
                 name: `${discordUser.username}'s Discord`,
                 service: 'discord',
                 credentials: { token: accessToken },
@@ -277,7 +285,7 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
             await storage.createConnection(connection);
 
             await storage.createActivity({
-                userId: 1,
+                userId,
                 type: 'connection_created',
                 description: `Connected to Discord as ${discordUser.username}`,
                 metadata: { service: 'discord', username: discordUser.username }
@@ -289,7 +297,6 @@ authRouter.get('/api/auth/:service/callback', async (req, res) => {
             res.redirect('/?discord=error');
         }
     } else {
-        // For other services, we'd implement similar OAuth exchange flows
         res.json({
             message: `Received authorization code for ${service}`,
             note: "This is a demo implementation. In a real app, this would exchange the code for access tokens."

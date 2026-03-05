@@ -7,9 +7,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/ui/empty-state";
+import { sanitizeText } from "@/lib/sanitize";
+
+type IntegrationTab = 'slack' | 'notion' | 'github' | 'gmail' | 'gcal' | 'discord';
+
+interface IntegrationDashboardResponse {
+  success: boolean;
+  data: {
+    integrationStatus: Record<string, string>;
+    slack?: { channel_info: any; messages: any[]; error?: string };
+    notion?: { tasks?: any[]; tasks_error?: string; error?: string };
+    github?: { app_info: any; repositories: any[]; error?: string };
+    gmail?: { profile: any; inbox: any; error?: string };
+    gcal?: { events: any; error?: string };
+    discord?: { userInfo: any; guilds: any[]; error?: string };
+  };
+}
 
 export function IntegrationDashboard() {
-  const [activeTab, setActiveTab] = useState<'slack' | 'notion' | 'github' | 'gmail' | 'gcal' | 'discord'>('slack');
+  const [activeTab, setActiveTab] = useState<IntegrationTab>('slack');
   const { toast } = useToast();
 
   // Fetch integrated data from our API
@@ -18,7 +34,7 @@ export function IntegrationDashboard() {
     isLoading,
     error,
     refetch
-  } = useQuery<any>({
+  } = useQuery<IntegrationDashboardResponse>({
     queryKey: ['/api/integration/dashboard'],
   });
 
@@ -208,7 +224,7 @@ export function IntegrationDashboard() {
                                     <Badge variant="outline" className="ml-2 text-xs">BOT</Badge>
                                   )}
                                 </div>
-                                <p className="text-sm mt-1">{message.text}</p>
+                                <p className="text-sm mt-1">{sanitizeText(message.text)}</p>
                               </div>
                             </div>
                           </div>
