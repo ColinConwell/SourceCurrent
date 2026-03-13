@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type ServiceType = "slack" | "notion" | "github" | "linear";
+type ServiceType = "slack" | "notion" | "github" | "linear" | "gmail" | "gcal" | "discord" | "gdrive";
 
 interface ServiceSelectorProps {
   selectedService: ServiceType | null;
@@ -16,12 +16,16 @@ export function ServiceSelector({ selectedService, onChange, availableServices }
     { id: "notion" as ServiceType, name: "Notion", icon: "ri-notion-fill", color: "bg-black" },
     { id: "github" as ServiceType, name: "GitHub", icon: "ri-github-fill", color: "bg-[#24292e]" },
     { id: "linear" as ServiceType, name: "Linear", icon: "ri-line-chart-line", color: "bg-[#5E6AD2]" },
+    { id: "gmail" as ServiceType, name: "Gmail", icon: "ri-mail-line", color: "bg-[#EA4335]" },
+    { id: "gcal" as ServiceType, name: "Google Calendar", icon: "ri-calendar-line", color: "bg-[#4285F4]" },
+    { id: "discord" as ServiceType, name: "Discord", icon: "ri-discord-line", color: "bg-[#5865F2]" },
+    { id: "gdrive" as ServiceType, name: "Google Drive", icon: "ri-drive-line", color: "bg-[#0F9D58]" },
   ];
 
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {services.map((service) => (
             <div
               key={service.id}

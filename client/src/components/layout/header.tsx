@@ -11,6 +11,10 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     switch (location) {
       case "/":
         return "Dashboard";
+      case "/endpoints":
+        return "API Endpoints";
+      case "/integrations":
+        return "Integrations";
       case "/config":
         return "Configurations";
       case "/activity":

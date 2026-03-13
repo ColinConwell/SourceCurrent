@@ -4,10 +4,22 @@ import { readSlackHistory, getChannelInfo, getUserInfo } from "./slack-setup";
 import { getTasks } from "./notion-setup";
 import { getGitHubClientForConnection } from "./github-client";
 import { getLinearClientForConnection } from "./linear-client";
+import { getGDriveClientForConnection } from "./gdrive-client";
 import { GmailService } from "./services/google/gmail";
 import { CalendarService } from "./services/google/calendar";
 import { DiscordClient } from "./services/discord/client";
 import { storage } from "./storage";
+import type { Connection } from "../shared/schema";
+import { getCredential } from "./utils/credentials";
+
+/**
+ * Helper to find a connection by service for the current user.
+ * Avoids repeating storage.getConnections(1).find(...) everywhere.
+ */
+async function findConnectionByService(service: string, userId: number = 1): Promise<Connection | undefined> {
+  const connections = await storage.getConnections(userId);
+  return connections.find(conn => conn.service === service);
+}
 
 /**
  * Sets up routes for our integrations with Slack, Notion, etc.
@@ -113,6 +125,78 @@ export async function setupIntegrationRoutes(app: Express) {
               }
             ]
           }
+        ],
+        gmail: [
+          {
+            id: "gmail-profile",
+            name: "Profile",
+            description: "Get Gmail profile information",
+            endpoint: "/api/gmail/profile",
+            method: "GET",
+            category: "Profile",
+          },
+          {
+            id: "gmail-messages",
+            name: "Messages",
+            description: "Get messages from a Gmail label",
+            endpoint: "/api/gmail/messages",
+            method: "GET",
+            category: "Messages",
+            params: [
+              {
+                name: "label",
+                type: "string",
+                required: false,
+                description: "Label to filter by (INBOX, SENT, TRASH)"
+              }
+            ]
+          }
+        ],
+        gcal: [
+          {
+            id: "gcal-events",
+            name: "Upcoming Events",
+            description: "Get upcoming calendar events",
+            endpoint: "/api/gcal/events",
+            method: "GET",
+            category: "Events",
+          }
+        ],
+        discord: [
+          {
+            id: "discord-user",
+            name: "User Info",
+            description: "Get connected Discord user information",
+            endpoint: "/api/discord/user",
+            method: "GET",
+            category: "User",
+          },
+          {
+            id: "discord-guilds",
+            name: "Guilds",
+            description: "Get the user's Discord servers",
+            endpoint: "/api/discord/guilds",
+            method: "GET",
+            category: "Guilds",
+          }
+        ],
+        gdrive: [
+          {
+            id: "gdrive-files",
+            name: "List Files",
+            description: "List files and folders in Google Drive",
+            endpoint: "/api/gdrive/files",
+            method: "GET",
+            category: "Files",
+            params: [
+              {
+                name: "folderId",
+                type: "string",
+                required: false,
+                description: "Folder ID to list (defaults to root)"
+              }
+            ]
+          }
         ]
       };
 
@@ -207,9 +291,7 @@ export async function setupIntegrationRoutes(app: Express) {
   // Get GitHub repositories
   app.get("/api/github/repositories", async (req: Request, res: Response) => {
     try {
-      // Find the first GitHub connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const githubConnection = connections.find(conn => conn.service === 'github');
+      const githubConnection = await findConnectionByService('github');
 
       if (!githubConnection) {
         return res.status(404).json({
@@ -248,9 +330,7 @@ export async function setupIntegrationRoutes(app: Express) {
     try {
       const { owner, repo } = req.params;
 
-      // Find the first GitHub connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const githubConnection = connections.find(conn => conn.service === 'github');
+      const githubConnection = await findConnectionByService('github');
 
       if (!githubConnection) {
         return res.status(404).json({
@@ -358,9 +438,7 @@ export async function setupIntegrationRoutes(app: Express) {
       // Get GitHub data if GitHub App credentials are available
       if (process.env.GITHUB_APP_ID && process.env.GITHUB_INSTALLATION_ID && process.env.GITHUB_PRIVATE_KEY) {
         try {
-          // Find the GitHub connection
-          const connections = await storage.getConnections(1); // Using default user ID
-          const githubConnection = connections.find(conn => conn.service === 'github');
+          const githubConnection = await findConnectionByService('github');
 
           if (githubConnection) {
             const githubClient = await getGitHubClientForConnection(githubConnection.id);
@@ -410,9 +488,7 @@ export async function setupIntegrationRoutes(app: Express) {
       // Get Linear data if credentials are available
       if (process.env.LINEAR_API_KEY) {
         try {
-          // Find the first Linear connection
-          const connections = await storage.getConnections(1); // Using default user ID
-          const linearConnection = connections.find(conn => conn.service === 'linear');
+          const linearConnection = await findConnectionByService('linear');
 
           if (linearConnection) {
             // Get Linear client for this connection
@@ -460,10 +536,10 @@ export async function setupIntegrationRoutes(app: Express) {
       }
 
       // Gmail
-      const gmailConn = (await storage.getConnections(1)).find(c => c.service === 'gmail');
-      if (gmailConn && (gmailConn.credentials as any)?.accessToken) {
+      const gmailConn = await findConnectionByService('gmail');
+      if (gmailConn && getCredential(gmailConn.credentials, 'accessToken')) {
         try {
-          const gmailService = new GmailService((gmailConn.credentials as any).accessToken as string);
+          const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
           const profile = await gmailService.getProfile();
           const inbox = await gmailService.getDesignatedLabel('INBOX');
           result.gmail = { profile, inbox };
@@ -478,10 +554,10 @@ export async function setupIntegrationRoutes(app: Express) {
       }
 
       // Calendar
-      const gcalConn = (await storage.getConnections(1)).find(c => c.service === 'gcal');
-      if (gcalConn && (gcalConn.credentials as any)?.accessToken) {
+      const gcalConn = await findConnectionByService('gcal');
+      if (gcalConn && getCredential(gcalConn.credentials, 'accessToken')) {
         try {
-          const calendarService = new CalendarService((gcalConn.credentials as any).accessToken as string);
+          const calendarService = new CalendarService(getCredential(gcalConn.credentials, 'accessToken')!);
           const events = await calendarService.getUpcomingEvents();
           result.gcal = { events };
           integrationStatus.gcal = 'active';
@@ -495,10 +571,10 @@ export async function setupIntegrationRoutes(app: Express) {
       }
 
       // Discord
-      const discordConn = (await storage.getConnections(1)).find(c => c.service === 'discord');
-      if (discordConn && (discordConn.credentials as any)?.token) {
+      const discordConn = await findConnectionByService('discord');
+      if (discordConn && getCredential(discordConn.credentials, 'token')) {
         try {
-          const discordClient = new DiscordClient((discordConn.credentials as any).token as string);
+          const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
           const userInfo = await discordClient.getUserInfo();
           const guilds = await discordClient.getGuilds();
           result.discord = { userInfo, guilds };
@@ -532,9 +608,7 @@ export async function setupIntegrationRoutes(app: Express) {
   // Get Linear teams
   app.get("/api/linear/teams", async (req: Request, res: Response) => {
     try {
-      // Find the first Linear connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const linearConnection = connections.find(conn => conn.service === 'linear');
+      const linearConnection = await findConnectionByService('linear');
 
       if (!linearConnection) {
         return res.status(404).json({
@@ -567,9 +641,7 @@ export async function setupIntegrationRoutes(app: Express) {
     try {
       const { teamId } = req.params;
 
-      // Find the first Linear connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const linearConnection = connections.find(conn => conn.service === 'linear');
+      const linearConnection = await findConnectionByService('linear');
 
       if (!linearConnection) {
         return res.status(404).json({
@@ -600,9 +672,7 @@ export async function setupIntegrationRoutes(app: Express) {
   // Get Linear workflow states
   app.get("/api/linear/workflow-states", async (req: Request, res: Response) => {
     try {
-      // Find the first Linear connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const linearConnection = connections.find(conn => conn.service === 'linear');
+      const linearConnection = await findConnectionByService('linear');
 
       if (!linearConnection) {
         return res.status(404).json({
@@ -635,9 +705,7 @@ export async function setupIntegrationRoutes(app: Express) {
     try {
       const { teamId } = req.params;
 
-      // Find the first Linear connection
-      const connections = await storage.getConnections(1); // Using default user ID
-      const linearConnection = connections.find(conn => conn.service === 'linear');
+      const linearConnection = await findConnectionByService('linear');
 
       if (!linearConnection) {
         return res.status(404).json({
@@ -711,9 +779,8 @@ export async function setupIntegrationRoutes(app: Express) {
             details: {
               message: directError.message,
               data: directError.response?.data || null,
-              apiKeyLastChars: process.env.LINEAR_API_KEY ?
-                `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
-                null
+              apiKeyConfigured: !!process.env.LINEAR_API_KEY,
+              apiKeyLength: process.env.LINEAR_API_KEY?.length || 0
             }
           });
         }
@@ -763,9 +830,8 @@ export async function setupIntegrationRoutes(app: Express) {
           error: connectionTest.error || "Failed to connect to Linear API",
           source: "connection",
           details: {
-            apiKeyLastChars: process.env.LINEAR_API_KEY ?
-              `...${process.env.LINEAR_API_KEY.substring(process.env.LINEAR_API_KEY.length - 5)}` :
-              null
+            apiKeyConfigured: !!process.env.LINEAR_API_KEY,
+            apiKeyLength: process.env.LINEAR_API_KEY?.length || 0
           }
         });
       }
@@ -775,6 +841,116 @@ export async function setupIntegrationRoutes(app: Express) {
         success: false,
         error: error.message || "Failed to test Linear connection"
       });
+    }
+  });
+
+  // ============================================================
+  // Gmail routes
+  // ============================================================
+
+  app.get("/api/gmail/profile", async (_req: Request, res: Response) => {
+    try {
+      const gmailConn = await findConnectionByService('gmail');
+      if (!gmailConn || !getCredential(gmailConn.credentials, 'accessToken')) {
+        return res.status(404).json({ success: false, error: "No Gmail connection found" });
+      }
+      const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
+      const profile = await gmailService.getProfile();
+      res.json({ success: true, data: profile });
+    } catch (error: any) {
+      console.error("Error getting Gmail profile:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to get Gmail profile" });
+    }
+  });
+
+  app.get("/api/gmail/messages", async (req: Request, res: Response) => {
+    try {
+      const gmailConn = await findConnectionByService('gmail');
+      if (!gmailConn || !getCredential(gmailConn.credentials, 'accessToken')) {
+        return res.status(404).json({ success: false, error: "No Gmail connection found" });
+      }
+      const gmailService = new GmailService(getCredential(gmailConn.credentials, 'accessToken')!);
+      const label = (req.query.label as string) || 'INBOX';
+      const validLabels = ['INBOX', 'SENT', 'TRASH'] as const;
+      const selectedLabel = validLabels.includes(label as any) ? label as 'INBOX' | 'SENT' | 'TRASH' : 'INBOX';
+      const messages = await gmailService.getDesignatedLabel(selectedLabel);
+      res.json({ success: true, data: messages });
+    } catch (error: any) {
+      console.error("Error getting Gmail messages:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to get Gmail messages" });
+    }
+  });
+
+  // ============================================================
+  // Google Calendar routes
+  // ============================================================
+
+  app.get("/api/gcal/events", async (_req: Request, res: Response) => {
+    try {
+      const gcalConn = await findConnectionByService('gcal');
+      if (!gcalConn || !getCredential(gcalConn.credentials, 'accessToken')) {
+        return res.status(404).json({ success: false, error: "No Google Calendar connection found" });
+      }
+      const calendarService = new CalendarService(getCredential(gcalConn.credentials, 'accessToken')!);
+      const events = await calendarService.getUpcomingEvents();
+      res.json({ success: true, data: events });
+    } catch (error: any) {
+      console.error("Error getting Calendar events:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to get Calendar events" });
+    }
+  });
+
+  // ============================================================
+  // Discord routes
+  // ============================================================
+
+  app.get("/api/discord/user", async (_req: Request, res: Response) => {
+    try {
+      const discordConn = await findConnectionByService('discord');
+      if (!discordConn || !getCredential(discordConn.credentials, 'token')) {
+        return res.status(404).json({ success: false, error: "No Discord connection found" });
+      }
+      const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
+      const userInfo = await discordClient.getUserInfo();
+      res.json({ success: true, data: userInfo });
+    } catch (error: any) {
+      console.error("Error getting Discord user info:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to get Discord user info" });
+    }
+  });
+
+  app.get("/api/discord/guilds", async (_req: Request, res: Response) => {
+    try {
+      const discordConn = await findConnectionByService('discord');
+      if (!discordConn || !getCredential(discordConn.credentials, 'token')) {
+        return res.status(404).json({ success: false, error: "No Discord connection found" });
+      }
+      const discordClient = new DiscordClient(getCredential(discordConn.credentials, 'token')!);
+      const guilds = await discordClient.getGuilds();
+      res.json({ success: true, data: guilds });
+    } catch (error: any) {
+      console.error("Error getting Discord guilds:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to get Discord guilds" });
+    }
+  });
+
+  // ============================================================
+  // Google Drive routes
+  // ============================================================
+
+  app.get("/api/gdrive/files", async (req: Request, res: Response) => {
+    try {
+      const gdriveConn = await findConnectionByService('gdrive');
+      if (!gdriveConn) {
+        return res.status(404).json({ success: false, error: "No Google Drive connection found" });
+      }
+      const gdriveClient = await getGDriveClientForConnection(gdriveConn.id);
+      const folderId = (req.query.folderId as string) || 'root';
+      const data = await gdriveClient.getFolderContentsAsDictionary(folderId);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      console.error("Error listing Google Drive files:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to list Google Drive files" });
     }
   });
 

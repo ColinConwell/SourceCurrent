@@ -10,7 +10,7 @@ import { ServiceSelector } from "./service-selector";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 
-type ServiceType = "slack" | "notion" | "github" | "linear";
+type ServiceType = "slack" | "notion" | "github" | "linear" | "gmail" | "gcal" | "discord" | "gdrive";
 
 export function EndpointExplorer() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
@@ -31,6 +31,10 @@ export function EndpointExplorer() {
     notion: false,
     github: false,
     linear: false,
+    gmail: false,
+    gcal: false,
+    discord: false,
+    gdrive: false,
   };
 
   // Generate endpoints based on selected service
@@ -147,6 +151,76 @@ export function EndpointExplorer() {
             description: "Get all workflow states",
             endpoint: "/api/linear/workflow-states",
             method: "GET" as const,
+          }
+        ];
+      case "gmail":
+        return [
+          {
+            id: "gmail-profile",
+            name: "Profile",
+            description: "Get Gmail profile information",
+            endpoint: "/api/gmail/profile",
+            method: "GET" as const,
+          },
+          {
+            id: "gmail-inbox",
+            name: "Inbox Messages",
+            description: "Get recent messages from the inbox",
+            endpoint: "/api/gmail/messages",
+            method: "GET" as const,
+            params: [
+              {
+                name: "label",
+                type: "string",
+                description: "Label to filter by (INBOX, SENT, TRASH)",
+                required: false
+              }
+            ]
+          }
+        ];
+      case "gcal":
+        return [
+          {
+            id: "gcal-events",
+            name: "Upcoming Events",
+            description: "Get upcoming calendar events",
+            endpoint: "/api/gcal/events",
+            method: "GET" as const,
+          }
+        ];
+      case "discord":
+        return [
+          {
+            id: "discord-user",
+            name: "User Info",
+            description: "Get the connected Discord user's information",
+            endpoint: "/api/discord/user",
+            method: "GET" as const,
+          },
+          {
+            id: "discord-guilds",
+            name: "Guilds",
+            description: "Get the user's Discord servers (guilds)",
+            endpoint: "/api/discord/guilds",
+            method: "GET" as const,
+          }
+        ];
+      case "gdrive":
+        return [
+          {
+            id: "gdrive-files",
+            name: "List Files",
+            description: "List files in Google Drive",
+            endpoint: "/api/gdrive/files",
+            method: "GET" as const,
+            params: [
+              {
+                name: "folderId",
+                type: "string",
+                description: "Folder ID to list (defaults to root)",
+                required: false
+              }
+            ]
           }
         ];
       default:

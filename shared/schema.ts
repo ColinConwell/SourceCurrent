@@ -130,6 +130,9 @@ export const serviceTypes = [
   { id: "notion", name: "Notion", icon: "file-text-line", color: "#000000" },
   { id: "github", name: "GitHub", icon: "github-fill", color: "#24292E" },
   { id: "linear", name: "Linear", icon: "terminal-box-line", color: "#5E6AD2" },
+  { id: "gmail", name: "Gmail", icon: "mail-line", color: "#EA4335" },
+  { id: "gcal", name: "Google Calendar", icon: "calendar-line", color: "#4285F4" },
+  { id: "discord", name: "Discord", icon: "discord-line", color: "#5865F2" },
   { id: "gdrive", name: "Google Drive", icon: "google-drive-line", color: "#0F9D58" }
 ] as const;
 
